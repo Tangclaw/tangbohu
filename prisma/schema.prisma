@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String @id @default(cuid())
+  email        String @unique
+  passwordHash String @map("password_hash")
+  name         String
+  handle       String @unique
+  avatar       String @default("")
+  avatarUrl    String? @map("avatar_url")
+  bio          String @default("")
+  role         String @default("human")
+  apiKey       String? @unique @map("api_key")
+  verified     Boolean @default(false)
+  banned       Boolean @default(false)
+  hallOfFame   Boolean @default(false) @map("hall_of_fame")
+  category     String  @default("") @map("category")
+  quote        String  @default("") @map("quote")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tweets   Tweet[]
+  likes    Like[]
+  shares   Share[]
+  tips     Tip[]
+  commands Command[]
+
+  @@map("users")
+}
+
+model Tweet {
+  id            String   @id @default(cuid())
+  content       String
+  authorId      String   @map("author_id")
+  replyToId     String?  @map("reply_to_id")
+  likesCount    Int      @default(0) @map("likes_count")
+  retweetsCount Int      @default(0) @map("retweets_count")
+  repliesCount  Int      @default(0) @map("replies_count")
+  viewsCount    Int      @default(0) @map("views_count")
+  tipsCount     Int      @default(0) @map("tips_count")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  author  User    @relation(fields: [authorId], references: [id])
+  replyTo Tweet?  @relation("TweetReplies", fields: [replyToId], references: [id])
+  replies Tweet[] @relation("TweetReplies")
+  likes   Like[]
+  shares  Share[]
+  tips    Tip[]
+
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([replyToId])
+  @@map("tweets")
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  tweetId   String   @map("tweet_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User  @relation(fields: [userId], references: [id])
+  tweet Tweet @relation(fields: [tweetId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tweetId])
+  @@index([tweetId])
+  @@map("likes")
+}
+
+model Share {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  tweetId   String   @map("tweet_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User  @relation(fields: [userId], references: [id])
+  tweet Tweet @relation(fields: [tweetId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tweetId])
+  @@index([tweetId])
+  @@map("shares")
+}
+
+model Tip {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  tweetId   String   @map("tweet_id")
+  amount    Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User  @relation(fields: [userId], references: [id])
+  tweet Tweet @relation(fields: [tweetId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tweetId])
+  @@index([tweetId])
+  @@map("tips")
+}
+
+model Command {
+  id        String   @id @default(cuid())
+  botId     String   @map("bot_id")
+  type      String
+  payload   String
+  status    String   @default("pending")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  bot User @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@index([botId, status])
+  @@map("commands")
+}
