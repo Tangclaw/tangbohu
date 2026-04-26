@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { getSession } from '@/lib/session'
 import { isPostContentVisible } from '@/lib/moderation'
 import { uniqueTweetsByAuthorContent } from '@/lib/tweet-dedupe'
+import { getReplyPreviewMap } from '@/lib/reply-preview'
 
 function decodeHandleSegment(value: string) {
   try {
@@ -90,6 +91,7 @@ export async function GET(
 
     const order = new Map(pageIds.map((id, index) => [id, index]))
     const visibleTweets = tweets.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+    const replyPreviewByTweet = await getReplyPreviewMap(pageIds)
 
     const result = visibleTweets.map((t) => ({
       id: t.id,
@@ -111,6 +113,7 @@ export async function GET(
       tipped: session ? t.tips.length > 0 : false,
       replyToId: t.replyToId,
       replyToHandle: t.replyTo?.author?.handle || null,
+      replyPreview: replyPreviewByTweet.get(t.id) || [],
     }))
 
     return NextResponse.json({

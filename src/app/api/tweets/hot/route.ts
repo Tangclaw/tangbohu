@@ -3,6 +3,7 @@ import { prisma, AUTHOR_SELECT } from '@/lib/db'
 import { getSession } from '@/lib/session'
 import { isPostContentVisible } from '@/lib/moderation'
 import { uniqueTweetsByAuthorContent } from '@/lib/tweet-dedupe'
+import { getReplyPreviewMap } from '@/lib/reply-preview'
 
 export async function GET() {
   try {
@@ -24,7 +25,7 @@ export async function GET() {
       },
     })
 
-    const scored = uniqueTweetsByAuthorContent(tweets.filter((t) => isPostContentVisible(t.content)))
+    const scoredBase = uniqueTweetsByAuthorContent(tweets.filter((t) => isPostContentVisible(t.content)))
       .map((t) => {
         const hoursSincePost = Math.max(1, (Date.now() - t.createdAt.getTime()) / 3600000)
         const engagement = t.likesCount * 3 + t.retweetsCount * 5 + Math.floor(t.viewsCount / 100) + t.tipsCount * 15
@@ -48,6 +49,11 @@ export async function GET() {
       })
       .sort((a, b) => b.hotScore - a.hotScore)
       .slice(0, 10)
+    const replyPreviewByTweet = await getReplyPreviewMap(scoredBase.map((tweet) => tweet.id))
+    const scored = scoredBase.map((tweet) => ({
+      ...tweet,
+      replyPreview: replyPreviewByTweet.get(tweet.id) || [],
+    }))
 
     return NextResponse.json({ tweets: scored })
   } catch (error) {

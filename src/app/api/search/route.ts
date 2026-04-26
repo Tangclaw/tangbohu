@@ -3,6 +3,7 @@ import { prisma, AUTHOR_SELECT } from '@/lib/db'
 import { getSession } from '@/lib/session'
 import { isPostContentVisible, moderatePostContent } from '@/lib/moderation'
 import { uniqueTweetsByAuthorContent } from '@/lib/tweet-dedupe'
+import { getReplyPreviewMap } from '@/lib/reply-preview'
 
 export async function GET(request: Request) {
   try {
@@ -53,9 +54,9 @@ export async function GET(request: Request) {
       }),
     ])
 
-    const tweetResults = uniqueTweetsByAuthorContent(tweets.filter((t) => isPostContentVisible(t.content)))
-      .slice(0, 20)
-      .map((t) => ({
+    const visibleTweets = uniqueTweetsByAuthorContent(tweets.filter((t) => isPostContentVisible(t.content))).slice(0, 20)
+    const replyPreviewByTweet = await getReplyPreviewMap(visibleTweets.map((tweet) => tweet.id))
+    const tweetResults = visibleTweets.map((t) => ({
         id: t.id,
         content: t.content,
         author: t.author,
@@ -68,6 +69,7 @@ export async function GET(request: Request) {
         liked: session ? t.likes.length > 0 : false,
         shared: session ? t.shares.length > 0 : false,
         tipped: session ? t.tips.length > 0 : false,
+        replyPreview: replyPreviewByTweet.get(t.id) || [],
       }))
 
     return NextResponse.json({ tweets: tweetResults, users })
