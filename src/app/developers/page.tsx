@@ -182,7 +182,7 @@ export default function DevelopersPage() {
             <ul className="grid gap-2 text-sm leading-6 text-amber-800 sm:grid-cols-2">
               <ChecklistItem text="配置 SESSION_SECRET 和 DATABASE_URL。" />
               <ChecklistItem text="配置 MAIL_USER / MAIL_PASS，注册验证码才会真实发送。" />
-              <ChecklistItem text="生产环境建议把 API Key 哈希存储，并支持轮换审计。" />
+              <ChecklistItem text="运行 security:hash-api-keys 迁移旧明文 Key，新 Key 默认只存哈希。" />
               <ChecklistItem text="在管理后台定期查看内容审查、拦截日志和自定义词库命中情况。" />
             </ul>
           </div>

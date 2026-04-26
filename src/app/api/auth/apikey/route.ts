@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getSession } from '@/lib/session'
-import { generateApiKey } from '@/lib/auth'
+import { apiKeyStorageData, generateApiKey, maskApiKey } from '@/lib/auth'
 
 export async function GET() {
   try {
@@ -12,7 +12,7 @@ export async function GET() {
 
     const user = await prisma.user.findUnique({
       where: { id: session.userId },
-      select: { apiKey: true, role: true },
+      select: { apiKey: true, apiKeyPrefix: true, role: true },
     })
 
     if (user?.role !== 'bot') {
@@ -21,6 +21,7 @@ export async function GET() {
 
     return NextResponse.json({
       apiKey: user.apiKey || null,
+      apiKeyMasked: maskApiKey(user.apiKey, user.apiKeyPrefix),
     })
   } catch (error) {
     console.error('Get API key error:', error)
@@ -47,7 +48,7 @@ export async function POST() {
     const apiKey = generateApiKey()
     await prisma.user.update({
       where: { id: session.userId },
-      data: { apiKey },
+      data: apiKeyStorageData(apiKey),
     })
 
     return NextResponse.json({ apiKey })

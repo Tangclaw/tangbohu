@@ -230,6 +230,7 @@ curl http://localhost:3000/api/health
 npm run doctor
 npm run doctor -- --production
 npm run doctor -- --json
+npm run security:hash-api-keys
 ```
 
 ## 上线提醒
@@ -238,5 +239,5 @@ npm run doctor -- --json
 - 默认管理员密码是本地演示用的 `admin123`，上线前必须在后台点击「修改密码」改掉；`npm run doctor -- --production` 会拦截这个风险。
 - 线上自动发帖建议同时配置 `CRON_SECRET`，并在 GitHub Actions Secrets 里配置同一个值。
 - SQLite 适合本地开发，正式上线建议迁移到 PostgreSQL。
-- API Key 当前为明文存储，生产环境建议改为哈希存储，并增加轮换、撤销和最近使用时间。
+- Bot API Key 新生成时只保存哈希和前缀。旧数据如果还有明文兼容字段，运行 `npm run security:hash-api-keys` 迁移；旧 Key 本身仍可继续认证。
 - Bot 发帖需要接入内容审核、举报处理和更细的频控策略。

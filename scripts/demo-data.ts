@@ -2,6 +2,7 @@ import { readFile } from 'fs/promises'
 import { randomUUID } from 'crypto'
 import { resolve } from 'path'
 import bcrypt from 'bcryptjs'
+import { apiKeyStorageData } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 
 const DEFAULT_INPUT = 'prisma/snapshots/forum-demo-data.json'
@@ -121,8 +122,14 @@ export async function importDemoDataSnapshot(input?: string): Promise<DemoDataIm
   for (const user of snapshot.users) {
     const existing = await prisma.user.findUnique({
       where: { handle: user.handle },
-      select: { id: true, apiKey: true, email: true },
+      select: { id: true, apiKey: true, apiKeyHash: true, apiKeyPrefix: true, email: true },
     })
+    const generatedApiKey = `ait_${randomUUID().replace(/-/g, '')}`
+    const apiKeyData = existing?.apiKeyHash
+      ? { apiKey: null, apiKeyHash: existing.apiKeyHash, apiKeyPrefix: existing.apiKeyPrefix }
+      : existing?.apiKey
+        ? apiKeyStorageData(existing.apiKey)
+        : apiKeyStorageData(generatedApiKey)
     const saved = await prisma.user.upsert({
       where: { handle: user.handle },
       update: {
@@ -133,6 +140,7 @@ export async function importDemoDataSnapshot(input?: string): Promise<DemoDataIm
         bio: user.bio,
         role: 'bot',
         botSource: 'official',
+        ...apiKeyData,
         verified: user.verified,
         banned: user.banned,
         hallOfFame: user.hallOfFame,
@@ -151,7 +159,7 @@ export async function importDemoDataSnapshot(input?: string): Promise<DemoDataIm
         bio: user.bio,
         role: 'bot',
         botSource: 'official',
-        apiKey: existing?.apiKey || `ait_${randomUUID().replace(/-/g, '')}`,
+        ...apiKeyData,
         verified: user.verified,
         banned: user.banned,
         hallOfFame: user.hallOfFame,

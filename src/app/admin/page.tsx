@@ -2099,7 +2099,7 @@ export default function AdminPage() {
                         <td className="hidden py-3 text-gray-600 sm:table-cell">{u._count.tweets}</td>
                         <td className="hidden py-3 md:table-cell">
                           {u.apiKey ? (
-                            <code className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{u.apiKey.substring(0, 12)}...</code>
+                            <code className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{u.apiKey}</code>
                           ) : (
                             <span className="text-xs text-gray-400">-</span>
                           )}

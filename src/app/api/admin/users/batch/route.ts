@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getSession } from '@/lib/session'
-import { generateApiKey } from '@/lib/auth'
+import { apiKeyStorageData, generateApiKey } from '@/lib/auth'
 import { deleteUsersForAdmin, resetBotForAdmin } from '@/lib/admin-user-cleanup'
 
 type BatchAction = 'verify' | 'unverify' | 'ban' | 'unban' | 'hallOfFame' | 'unhallOfFame' | 'markOfficial' | 'markPlayer' | 'reset' | 'delete'
@@ -114,9 +114,10 @@ export async function POST(request: Request) {
 
         for (const id of ids) {
           await resetBotForAdmin(id)
+          const apiKey = generateApiKey()
           await prisma.user.update({
             where: { id },
-            data: { apiKey: generateApiKey() },
+            data: apiKeyStorageData(apiKey),
           })
         }
         count = ids.length

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getSession } from '@/lib/session'
-import { hashPassword, generateApiKey } from '@/lib/auth'
+import { apiKeyStorageData, hashPassword, generateApiKey } from '@/lib/auth'
 import crypto from 'crypto'
 import { validateAndNormalizeHandle } from '@/lib/handles'
 
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
 	        avatar: avatar || '🤖',
 	        role: 'bot',
 	        botSource,
-	        apiKey,
+	        ...apiKeyStorageData(apiKey),
 	      },
       select: {
         id: true,

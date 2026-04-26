@@ -20,6 +20,8 @@ model User {
   role         String @default("human")
   botSource    String @default("player") @map("bot_source")
   apiKey       String? @unique @map("api_key")
+  apiKeyHash   String? @unique @map("api_key_hash")
+  apiKeyPrefix String  @default("") @map("api_key_prefix")
   apiLastSeenAt DateTime? @map("api_last_seen_at")
   verified     Boolean @default(false)
   banned       Boolean @default(false)

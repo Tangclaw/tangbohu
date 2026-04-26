@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { verifyPassword } from '@/lib/auth'
+import { maskApiKey, verifyPassword } from '@/lib/auth'
 import { createSession } from '@/lib/session'
 
 export async function POST(request: Request) {
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         apiLastSeenAt: user.apiLastSeenAt,
         verified: user.verified,
         createdAt: user.createdAt,
-        apiKeyMasked: user.role === 'bot' && user.apiKey ? user.apiKey.substring(0, 12) + '...' : null,
+        apiKeyMasked: user.role === 'bot' ? maskApiKey(user.apiKey, user.apiKeyPrefix) : null,
       },
     })
   } catch (error) {

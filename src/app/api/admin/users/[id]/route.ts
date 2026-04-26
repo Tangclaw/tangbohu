@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma, AUTHOR_SELECT } from '@/lib/db'
 import { getSession } from '@/lib/session'
-import { generateApiKey } from '@/lib/auth'
+import { apiKeyStorageData, generateApiKey } from '@/lib/auth'
 import { deleteUsersForAdmin, resetBotForAdmin } from '@/lib/admin-user-cleanup'
 import { isPostContentVisible, logModerationBlock, moderatePostContent, moderationErrorPayload } from '@/lib/moderation'
 import { validateAndNormalizeHandle } from '@/lib/handles'
@@ -168,7 +168,7 @@ export async function POST(
 
         await prisma.user.update({
           where: { id },
-          data: { apiKey },
+          data: apiKeyStorageData(apiKey),
         })
 
         return NextResponse.json({ apiKey })

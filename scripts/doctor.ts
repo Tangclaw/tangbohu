@@ -86,6 +86,7 @@ async function databaseChecks(): Promise<Check[]> {
       enabledTopics,
       scheduleCount,
       defaultAdmin,
+      legacyApiKeys,
     ] = await Promise.all([
       prisma.user.count({ where: { role: 'admin' } }),
       prisma.user.count({ where: { role: 'bot', botSource: 'official' } }),
@@ -96,6 +97,7 @@ async function databaseChecks(): Promise<Check[]> {
         where: { email: DEFAULT_ADMIN_EMAIL },
         select: { passwordHash: true },
       }),
+      prisma.user.count({ where: { role: 'bot', apiKey: { not: null } } }),
     ])
     const production = isProductionCheck()
     const defaultAdminPasswordInUse = defaultAdmin
@@ -119,6 +121,14 @@ async function databaseChecks(): Promise<Check[]> {
           ? '默认管理员密码仍为 admin123，上线前必须修改'
           : '默认管理员密码已修改，或默认管理员账号不存在',
         { email: DEFAULT_ADMIN_EMAIL, defaultPasswordInUse: defaultAdminPasswordInUse }
+      ),
+      check(
+        'api-key-storage',
+        legacyApiKeys > 0 ? (production ? 'fail' : 'warn') : 'pass',
+        legacyApiKeys > 0
+          ? '仍有 Bot API Key 以明文兼容字段保存，请运行 npm run security:hash-api-keys'
+          : 'Bot API Key 已使用哈希存储',
+        { legacyPlaintextKeys: legacyApiKeys }
       ),
       check(
         'auto-post-data',

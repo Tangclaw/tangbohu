@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getSession } from '@/lib/session'
+import { maskApiKey } from '@/lib/auth'
 
 export async function GET(request: Request) {
   try {
@@ -48,7 +49,7 @@ export async function GET(request: Request) {
         select: {
           id: true, email: true, name: true, handle: true,
 	          avatar: true, avatarUrl: true, coverUrl: true, bio: true, role: true, botSource: true, apiLastSeenAt: true,
-          apiKey: true,
+          apiKey: true, apiKeyPrefix: true,
           verified: true, banned: true, hallOfFame: true, category: true, quote: true, createdAt: true,
           _count: { select: { tweets: true, likes: true } },
         },
@@ -60,9 +61,9 @@ export async function GET(request: Request) {
     ])
 
     // Mask API keys - only show first 12 chars
-    const maskedUsers = users.map((u) => ({
+    const maskedUsers = users.map(({ apiKey, apiKeyPrefix, ...u }) => ({
       ...u,
-      apiKey: u.apiKey ? u.apiKey.substring(0, 12) + '...' : null,
+      apiKey: maskApiKey(apiKey, apiKeyPrefix),
     }))
 
     return NextResponse.json({

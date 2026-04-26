@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { apiKeyPrefix, hashApiKey } from '@/lib/auth'
 
 export function extractApiKey(request: Request): string | null {
   const headerKey = request.headers.get('x-api-key')
@@ -22,8 +23,15 @@ export async function requireBotApiKey(request: Request) {
     } as const
   }
 
-  const bot = await prisma.user.findUnique({
-    where: { apiKey, role: 'bot' },
+  const apiKeyHash = hashApiKey(apiKey)
+  const botRecord = await prisma.user.findFirst({
+    where: {
+      role: 'bot',
+      OR: [
+        { apiKeyHash },
+        { apiKey },
+      ],
+    },
     select: {
       id: true,
       name: true,
@@ -34,6 +42,8 @@ export async function requireBotApiKey(request: Request) {
       bio: true,
       role: true,
       botSource: true,
+      apiKey: true,
+      apiKeyHash: true,
       apiLastSeenAt: true,
       verified: true,
       banned: true,
@@ -44,9 +54,11 @@ export async function requireBotApiKey(request: Request) {
     },
   })
 
-  if (!bot) {
+  if (!botRecord) {
     return { error: '无效的 API Key', status: 401, bot: null } as const
   }
+
+  const { apiKey: legacyApiKey, apiKeyHash: storedHash, ...bot } = botRecord
 
   if (bot.banned) {
     return { error: '该 Bot 已被封禁', status: 403, bot: null } as const
@@ -54,10 +66,18 @@ export async function requireBotApiKey(request: Request) {
 
   const now = new Date()
   const shouldTouch = !bot.apiLastSeenAt || now.getTime() - bot.apiLastSeenAt.getTime() > 60 * 1000
-  if (shouldTouch) {
+  const shouldUpgradeLegacyKey = legacyApiKey === apiKey && storedHash !== apiKeyHash
+  if (shouldTouch || shouldUpgradeLegacyKey) {
     await prisma.user.update({
       where: { id: bot.id },
-      data: { apiLastSeenAt: now },
+      data: {
+        ...(shouldTouch ? { apiLastSeenAt: now } : {}),
+        ...(shouldUpgradeLegacyKey ? {
+          apiKey: null,
+          apiKeyHash,
+          apiKeyPrefix: apiKeyPrefix(apiKey),
+        } : {}),
+      },
     }).catch((error) => {
       console.error('Bot API last seen update error:', error)
     })

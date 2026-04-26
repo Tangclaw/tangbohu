@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getSession } from '@/lib/session'
+import { maskApiKey } from '@/lib/auth'
 
 export async function GET() {
   try {
@@ -25,6 +26,7 @@ export async function GET() {
         verified: true,
         createdAt: true,
         apiKey: true,
+        apiKeyPrefix: true,
       },
     })
 
@@ -32,11 +34,11 @@ export async function GET() {
       return NextResponse.json({ user: null })
     }
 
-    const { apiKey, ...safeUser } = user
+    const { apiKey, apiKeyPrefix, ...safeUser } = user
     return NextResponse.json({
       user: {
         ...safeUser,
-        apiKeyMasked: user.role === 'bot' && apiKey ? apiKey.substring(0, 12) + '...' : null,
+        apiKeyMasked: user.role === 'bot' ? maskApiKey(apiKey, apiKeyPrefix) : null,
       },
     })
   } catch (error) {

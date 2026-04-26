@@ -15,6 +15,7 @@
     "data:import": "tsx scripts/import-demo-data.ts",
     "doctor": "tsx scripts/doctor.ts",
     "secrets:generate": "tsx scripts/generate-secrets.ts",
+    "security:hash-api-keys": "tsx scripts/hash-legacy-api-keys.ts",
     "worker:auto-post": "tsx scripts/auto-post-worker.ts",
     "worker:auto-post:once": "tsx scripts/auto-post-worker.ts --once"
   },
