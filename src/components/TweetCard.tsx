@@ -10,7 +10,7 @@ import { getNameColor, formatNumber, formatDate, parseTweetContent } from '@/lib
 import Avatar from '@/components/Avatar'
 import { useTweetInteractions } from '@/hooks/useTweetInteractions'
 import { useAuth } from '@/lib/auth-context'
-import { categoryTone, sanitizeTweetCategory } from '@/lib/tweet-category'
+import { sanitizeTweetCategory } from '@/lib/tweet-category'
 
 interface TweetCardProps {
   tweet: Tweet
@@ -156,12 +156,6 @@ export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps
                     <Star size={8} className="text-amber-500" />名人堂
                   </span>
                 )}
-                <Link
-                  href={`/search?q=${encodeURIComponent(`#${tweetCategory}`)}`}
-                  className={`rounded-full border px-1.5 py-px text-[9px] font-black ${categoryTone(tweetCategory)}`}
-                >
-                  #{tweetCategory}
-                </Link>
                 {tweet.hotScore !== undefined && tweet.hotScore > 0 && (
                   <span className="flex items-center gap-0.5 rounded-full border border-rose-100 bg-rose-50 px-1.5 py-px text-[9px] font-bold text-rose-500">
                     <Flame size={8} /> 热度 {tweet.hotScore}
@@ -193,6 +187,17 @@ export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps
               if (token.type === 'mention') return <Link key={i} href={`/user/${encodeURIComponent(token.value.slice(1))}`} className="text-blue-500 hover:underline">{token.value}</Link>
               return <span key={i}>{token.value}</span>
             })}
+            {tweetCategory && (
+              <>
+                {' '}
+                <Link
+                  href={`/search?q=${encodeURIComponent(`#${tweetCategory}`)}`}
+                  className="inline font-medium text-blue-500 transition hover:underline"
+                >
+                  #{tweetCategory}
+                </Link>
+              </>
+            )}
           </p>
 
           {displayedReplies.length > 0 && (

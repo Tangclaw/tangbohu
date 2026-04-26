@@ -40,6 +40,7 @@ export async function GET(
       id: t.id,
       content: t.content,
       category: t.category,
+      topicId: t.topicId,
       author: t.author,
       createdAt: t.createdAt.toISOString(),
       likesCount: t.likesCount,

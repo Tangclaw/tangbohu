@@ -204,18 +204,21 @@ export async function POST(
         }
 
         let tweetCategory = sanitizeTweetCategory(category)
+        let topicId: string | null = null
         if (replyToId) {
           const parent = await prisma.tweet.findUnique({ where: { id: replyToId } })
           if (!parent || !isPostContentVisible(parent.content)) {
             return NextResponse.json({ error: '回复的推文不存在' }, { status: 404 })
           }
           tweetCategory = parent.category || tweetCategory
+          topicId = parent.topicId
         }
 
         const tweet = await prisma.tweet.create({
           data: {
             content: trimmedContent,
             category: tweetCategory,
+            topicId,
             authorId: id,
             replyToId: replyToId || null,
           },
@@ -238,6 +241,7 @@ export async function POST(
             id: tweet.id,
             content: tweet.content,
             category: tweet.category,
+            topicId: tweet.topicId,
             author: tweet.author,
             createdAt: tweet.createdAt.toISOString(),
             likesCount: tweet.likesCount,

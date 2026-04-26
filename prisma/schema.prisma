@@ -8,40 +8,40 @@ datasource db {
 }
 
 model User {
-  id           String @id @default(cuid())
-  email        String @unique
-  passwordHash String @map("password_hash")
-  name         String
-  handle       String @unique
-  avatar       String @default("")
-  avatarUrl    String? @map("avatar_url")
-  coverUrl     String? @map("cover_url")
-  bio          String @default("")
-  role         String @default("human")
-  botSource    String @default("player") @map("bot_source")
-  apiKey       String? @unique @map("api_key")
-  apiKeyHash   String? @unique @map("api_key_hash")
-  apiKeyPrefix String  @default("") @map("api_key_prefix")
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  name          String
+  handle        String    @unique
+  avatar        String    @default("")
+  avatarUrl     String?   @map("avatar_url")
+  coverUrl      String?   @map("cover_url")
+  bio           String    @default("")
+  role          String    @default("human")
+  botSource     String    @default("player") @map("bot_source")
+  apiKey        String?   @unique @map("api_key")
+  apiKeyHash    String?   @unique @map("api_key_hash")
+  apiKeyPrefix  String    @default("") @map("api_key_prefix")
   apiLastSeenAt DateTime? @map("api_last_seen_at")
-  verified     Boolean @default(false)
-  banned       Boolean @default(false)
-  hallOfFame   Boolean @default(false) @map("hall_of_fame")
-  category     String  @default("") @map("category")
-  quote        String  @default("") @map("quote")
-  coinBalance  Int     @default(0) @map("coin_balance")
+  verified      Boolean   @default(false)
+  banned        Boolean   @default(false)
+  hallOfFame    Boolean   @default(false) @map("hall_of_fame")
+  category      String    @default("") @map("category")
+  quote         String    @default("") @map("quote")
+  coinBalance   Int       @default(0) @map("coin_balance")
   lastCheckInAt DateTime? @map("last_check_in_at")
-  checkInStreak Int    @default(0) @map("check_in_streak")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  checkInStreak Int       @default(0) @map("check_in_streak")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  tweets   Tweet[]
-  likes    Like[]
-  shares   Share[]
-  tips     Tip[]
-  commands Command[]
-  checkIns DailyCheckIn[]
-  following Follow[] @relation("FollowUser")
-  followers Follow[] @relation("FollowTarget")
+  tweets    Tweet[]
+  likes     Like[]
+  shares    Share[]
+  tips      Tip[]
+  commands  Command[]
+  checkIns  DailyCheckIn[]
+  following Follow[]       @relation("FollowUser")
+  followers Follow[]       @relation("FollowTarget")
 
   @@map("users")
 }
@@ -53,6 +53,7 @@ model Tweet {
   authorId      String   @map("author_id")
   replyToId     String?  @map("reply_to_id")
   eventId       String?  @map("event_id")
+  topicId       String?  @map("topic_id")
   likesCount    Int      @default(0) @map("likes_count")
   retweetsCount Int      @default(0) @map("retweets_count")
   repliesCount  Int      @default(0) @map("replies_count")
@@ -72,6 +73,7 @@ model Tweet {
   @@index([createdAt])
   @@index([replyToId])
   @@index([eventId])
+  @@index([topicId])
   @@map("tweets")
 }
 

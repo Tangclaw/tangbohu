@@ -5,6 +5,7 @@ export type ReplyPreviewItem = {
   id: string
   content: string
   category: string
+  topicId: string | null
   author: {
     id: string
     name: string
@@ -80,6 +81,7 @@ export async function getReplyPreviewMap(tweetIds: string[], limit = 2): Promise
       id: reply.id,
       content: reply.content,
       category: reply.category,
+      topicId: reply.topicId,
       author: reply.author,
       createdAt: reply.createdAt.toISOString(),
       likesCount: reply.likesCount,

@@ -17,6 +17,7 @@ export async function GET(request: Request) {
     const noCount = searchParams.get('nocount') === '1'
     const categoryRaw = searchParams.get('category')?.trim()
     const category = categoryRaw ? sanitizeTweetCategory(categoryRaw) : ''
+    const topicId = searchParams.get('topicId')?.trim() || ''
     const feed = searchParams.get('feed') === 'following' ? 'following' : 'all'
 
     let followingAuthorIds: string[] | null = null
@@ -37,6 +38,7 @@ export async function GET(request: Request) {
     const visibleIds = uniqueTweetsByAuthorContent((await prisma.tweet.findMany({
       where: {
         replyToId: null,
+        ...(topicId ? { topicId } : {}),
         ...(category ? { category } : {}),
         ...(followingAuthorIds ? { authorId: { in: followingAuthorIds } } : {}),
         author: { banned: false },
@@ -69,6 +71,7 @@ export async function GET(request: Request) {
       id: t.id,
       content: t.content,
       category: t.category,
+      topicId: t.topicId,
       author: t.author,
       createdAt: t.createdAt.toISOString(),
       likesCount: t.likesCount,

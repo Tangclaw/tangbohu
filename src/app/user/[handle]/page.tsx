@@ -9,8 +9,8 @@ import MobileNav from '@/components/MobileNav'
 import SkeletonTweet from '@/components/SkeletonTweet'
 import TweetCard from '@/components/TweetCard'
 import { Tweet } from '@/types'
-import { avatarGradients, getNameColor, formatNumber, formatDate } from '@/lib/utils'
-import { ArrowLeft, Calendar, MessageSquare, Heart, Repeat2, Coins, Star, Camera, UserPlus, UserCheck, Users, Loader2 } from 'lucide-react'
+import { avatarGradients, getNameColor, formatNumber } from '@/lib/utils'
+import { ArrowLeft, MessageSquare, Star, Camera, UserPlus, UserCheck, Users, Loader2 } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/Toast'
@@ -47,6 +47,22 @@ interface UserProfile {
  isFollowing: boolean
 }
 
+interface FollowListUser {
+ id: string
+ name: string
+ handle: string
+ avatar: string
+ avatarUrl?: string | null
+ coverUrl?: string | null
+ bio: string
+ role: string
+ verified: boolean
+ hallOfFame?: boolean
+ category?: string
+ followersCount: number
+ tweetCount: number
+}
+
 export default function UserProfilePage() {
  const params = useParams()
  const rawHandle = params.handle as string
@@ -65,6 +81,9 @@ export default function UserProfilePage() {
  const [uploading, setUploading] = useState(false)
  const [uploadingCover, setUploadingCover] = useState(false)
  const [followLoading, setFollowLoading] = useState(false)
+ const [followPanel, setFollowPanel] = useState<'followers' | 'following' | null>(null)
+ const [followUsers, setFollowUsers] = useState<FollowListUser[]>([])
+ const [followListLoading, setFollowListLoading] = useState(false)
  const loadMoreRef = useRef<HTMLDivElement | null>(null)
  const loadingMoreRef = useRef(false)
 
@@ -199,6 +218,31 @@ export default function UserProfilePage() {
  toast('关注失败，请稍后重试', 'info')
  } finally {
  setFollowLoading(false)
+ }
+ }
+
+ const openFollowPanel = async (type: 'followers' | 'following') => {
+ if (!profile) return
+ if (followPanel === type) {
+ setFollowPanel(null)
+ return
+ }
+ setFollowPanel(type)
+ setFollowListLoading(true)
+ try {
+ const res = await fetch(`/api/users/${encodeURIComponent(profile.handle)}/follows?type=${type}`)
+ const data = await res.json().catch(() => ({}))
+ if (!res.ok || !Array.isArray(data.users)) {
+ toast(data.error || '加载关注列表失败', 'info')
+ setFollowUsers([])
+ return
+ }
+ setFollowUsers(data.users)
+ } catch {
+ toast('加载关注列表失败，请稍后重试', 'info')
+ setFollowUsers([])
+ } finally {
+ setFollowListLoading(false)
  }
  }
 
@@ -349,24 +393,11 @@ export default function UserProfilePage() {
  </>
  )}
 	 </div>
- {canFollow && (
- <button
- onClick={handleFollow}
- disabled={followLoading}
- className={`ai-interactive ml-auto inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-black shadow-sm transition disabled:cursor-not-allowed disabled:opacity-70 ${
- profile.isFollowing
- ? 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
- : 'bg-slate-950 text-white shadow-slate-950/15 hover:bg-slate-800'
- }`}
- >
- {followLoading ? <Loader2 size={16} className="animate-spin" /> : profile.isFollowing ? <UserCheck size={16} /> : <UserPlus size={16} />}
- {profile.isFollowing ? '已关注' : '关注'}
- </button>
- )}
 	 </div>
 
  {/* Info */}
- <div className="mb-3">
+ <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+ <div className="min-w-0 flex-1">
  <div className="flex min-w-0 items-center gap-2">
  <h2 className={`min-w-0 truncate text-xl font-bold ${getNameColor(profile.avatar)}`}>{profile.name}</h2>
  {profile.verified && (
@@ -403,34 +434,66 @@ export default function UserProfilePage() {
  <p className="mt-2 break-words text-sm italic text-amber-600">"{profile.quote}"</p>
  )}
  </div>
-
- {/* Profile Meta */}
-	 <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-	 <span className="flex items-center gap-1 rounded-xl bg-slate-50 px-3 py-2 text-gray-600">
-	 <Users size={14} className="text-blue-400" />
-	 <strong className="text-gray-900">{formatNumber(profile.followersCount)}</strong> 粉丝
-	 </span>
-	 <span className="flex items-center gap-1 rounded-xl bg-slate-50 px-3 py-2 text-gray-600">
-	 <UserCheck size={14} className="text-cyan-500" />
-	 <strong className="text-gray-900">{formatNumber(profile.followingCount)}</strong> 关注
-	 </span>
-	 <span className="flex items-center gap-1 rounded-xl bg-slate-50 px-3 py-2 text-gray-600">
-	 <Repeat2 size={14} className="text-green-400" />
-	 <strong className="text-gray-900">{formatNumber(profile.totalRetweets)}</strong> 转发
-	 </span>
-	 <span className="flex items-center gap-1 rounded-xl bg-slate-50 px-3 py-2 text-gray-600">
-	 <Coins size={14} className="text-yellow-400" />
-	 <strong className="text-gray-900">{formatNumber(profile.totalTips)}</strong> 打赏
-	 </span>
-	 <span className="flex items-center gap-1 rounded-xl bg-slate-50 px-3 py-2 text-gray-600">
-	 <Heart size={14} className="text-red-400" />
-	 <strong className="text-gray-900">{profile.verified ? '已认证' : '未认证'}</strong>
-	 </span>
-	 <span className="flex items-center gap-1 rounded-xl bg-slate-50 px-3 py-2 text-gray-600">
-	 <Calendar size={14} />
-	 <strong className="text-gray-900">{formatDate(profile.createdAt)}</strong>
- </span>
+ {canFollow && (
+ <button
+ onClick={handleFollow}
+ disabled={followLoading}
+ className={`ai-interactive inline-flex w-fit shrink-0 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-70 ${
+ profile.isFollowing
+ ? 'border border-blue-100 bg-blue-50 text-blue-700 hover:bg-blue-100'
+ : 'bg-blue-600 text-white shadow-lg shadow-blue-500/18 hover:bg-blue-700'
+ }`}
+ >
+ {followLoading ? <Loader2 size={16} className="animate-spin" /> : profile.isFollowing ? <UserCheck size={16} /> : <UserPlus size={16} />}
+ {profile.isFollowing ? '已关注' : '关注'}
+ </button>
+ )}
  </div>
+
+ {/* Social Meta */}
+	 <div className="flex flex-wrap gap-2 text-sm">
+	 <button type="button" onClick={() => openFollowPanel('followers')} className="ai-interactive inline-flex items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50/70 px-3 py-1.5 text-left text-blue-700 transition hover:bg-blue-100">
+	 <Users size={14} className="text-blue-400" />
+	 <strong>{formatNumber(profile.followersCount)}</strong> 粉丝
+	 </button>
+	 <button type="button" onClick={() => openFollowPanel('following')} className="ai-interactive inline-flex items-center gap-1.5 rounded-full border border-cyan-100 bg-cyan-50/70 px-3 py-1.5 text-left text-cyan-700 transition hover:bg-cyan-100">
+	 <UserCheck size={14} className="text-cyan-500" />
+	 <strong>{formatNumber(profile.followingCount)}</strong> 关注
+	 </button>
+ </div>
+ {followPanel && (
+ <div className="mt-3 rounded-2xl border border-slate-200 bg-white/82 p-3 shadow-sm shadow-slate-950/[0.03]">
+ <div className="mb-2 flex items-center justify-between">
+ <div className="text-sm font-black text-slate-950">{followPanel === 'followers' ? '粉丝' : '关注'}</div>
+ <button type="button" onClick={() => setFollowPanel(null)} className="rounded-full px-2 py-1 text-xs font-bold text-slate-400 hover:bg-slate-50 hover:text-slate-700">收起</button>
+ </div>
+ {followListLoading ? (
+ <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-3 text-xs font-bold text-slate-400">
+ <Loader2 size={14} className="animate-spin" />
+ 加载中...
+ </div>
+ ) : followUsers.length === 0 ? (
+ <div className="rounded-xl bg-slate-50 px-3 py-3 text-xs font-bold text-slate-400">
+ {followPanel === 'followers' ? '暂时还没有粉丝' : '暂时还没有关注任何账号'}
+ </div>
+ ) : (
+ <div className="grid gap-2 sm:grid-cols-2">
+ {followUsers.map((item) => (
+ <Link key={item.id} href={`/user/${encodeURIComponent(item.handle.replace('@', ''))}`} className="group flex min-w-0 items-center gap-2 rounded-xl border border-slate-100 bg-slate-50/70 p-2 transition hover:border-blue-100 hover:bg-blue-50/70">
+ <Avatar user={item} size="sm" className="shrink-0 ring-2 ring-white" />
+ <div className="min-w-0 flex-1">
+ <div className="flex min-w-0 items-center gap-1">
+ <span className={`truncate text-xs font-black ${getNameColor(item.avatar)}`}>{item.name}</span>
+ {item.verified && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />}
+ </div>
+ <div className="truncate text-[10px] font-medium text-slate-400">{item.category || item.role} · {formatNumber(item.followersCount)} 粉丝</div>
+ </div>
+ </Link>
+ ))}
+ </div>
+ )}
+ </div>
+ )}
  </div>
  </div>
  )}

@@ -12,7 +12,7 @@ import { ArrowLeft, Heart, Repeat2, Coins, Share2, Eye, MessageCircle, Bot, Star
 import { useToast } from '@/components/Toast'
 import Avatar from '@/components/Avatar'
 import { useTweetInteractions } from '@/hooks/useTweetInteractions'
-import { categoryTone, sanitizeTweetCategory } from '@/lib/tweet-category'
+import { sanitizeTweetCategory } from '@/lib/tweet-category'
 
 export default function TweetDetailPage() {
   const params = useParams()
@@ -186,12 +186,6 @@ export default function TweetDetailPage() {
                         <Sparkles size={10} /> {tweet.event.title}
                       </span>
                     )}
-                    <Link
-                      href={`/search?q=${encodeURIComponent(`#${tweetCategory}`)}`}
-                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-black ${categoryTone(tweetCategory)}`}
-                    >
-                      #{tweetCategory}
-                    </Link>
                   </div>
                 </div>
               </div>
@@ -203,6 +197,17 @@ export default function TweetDetailPage() {
                   if (token.type === 'mention') return <Link key={i} href={`/user/${encodeURIComponent(token.value.slice(1))}`} className="text-blue-500 hover:underline">{token.value}</Link>
                   return <span key={i}>{token.value}</span>
                 })}
+                {tweetCategory && (
+                  <>
+                    {' '}
+                    <Link
+                      href={`/search?q=${encodeURIComponent(`#${tweetCategory}`)}`}
+                      className="inline font-semibold text-blue-500 hover:underline"
+                    >
+                      #{tweetCategory}
+                    </Link>
+                  </>
+                )}
               </p>
 
               {/* Timestamp */}

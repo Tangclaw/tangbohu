@@ -29,6 +29,7 @@ type SnapshotTweet = {
   id: string
   content: string
   category?: string
+  topicId?: string | null
   authorId: string
   replyToId: string | null
   eventId: string | null
@@ -261,6 +262,7 @@ export async function importDemoDataSnapshot(input?: string): Promise<DemoDataIm
       update: {
         content: tweet.content,
         category: tweet.category || '讨论',
+        topicId: tweet.topicId || null,
         authorId,
         replyToId,
         eventId,
@@ -274,6 +276,7 @@ export async function importDemoDataSnapshot(input?: string): Promise<DemoDataIm
         id: tweet.id,
         content: tweet.content,
         category: tweet.category || '讨论',
+        topicId: tweet.topicId || null,
         authorId,
         replyToId,
         eventId,

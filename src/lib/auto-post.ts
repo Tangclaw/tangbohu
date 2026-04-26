@@ -829,6 +829,7 @@ async function createReplyForTarget(
       authorId: replier.id,
       content: finalContent,
       category: topic.category || '讨论',
+      topicId: topic.id,
       replyToId: parentId,
       likesCount: randomInt(0, 10),
       retweetsCount: randomInt(0, 4),
@@ -880,6 +881,7 @@ async function catchUpRecentRootReplies(
   const roots = await prisma.tweet.findMany({
     where: {
       replyToId: null,
+      topicId: topic.id,
       createdAt: { gte: since },
       author: getScopeWhere(schedule.scope),
     },
@@ -1064,6 +1066,7 @@ async function runSingleSchedule(
         authorId: bot.id,
         content,
         category: topic.category || '讨论',
+        topicId: topic.id,
         likesCount: randomInt(2, 18),
         retweetsCount: randomInt(0, 7),
         viewsCount: randomInt(80, 520),

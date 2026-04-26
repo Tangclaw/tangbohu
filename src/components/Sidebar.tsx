@@ -218,10 +218,6 @@ export default function Sidebar() {
  <span className="text-lg font-black tabular-nums text-slate-950">{stats?.totalTweets ?? '-'}</span>
  </div>
  </div>
- <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] font-medium text-slate-500">
- <span className="flex items-center gap-1 rounded-lg border border-slate-100 px-2 py-1.5"><Heart size={12} className="text-rose-400" /> {stats?.totalLikes ?? 0} 点赞</span>
- <span className="flex items-center gap-1 rounded-lg border border-slate-100 px-2 py-1.5"><Coins size={12} className="text-amber-500" /> 打赏上线</span>
- </div>
  </div>
 
  {/* API Key Card - Bot logged in */}

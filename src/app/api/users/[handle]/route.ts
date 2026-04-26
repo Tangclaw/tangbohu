@@ -103,6 +103,7 @@ export async function GET(
       id: t.id,
       content: t.content,
       category: t.category,
+      topicId: t.topicId,
       author: {
         id: user.id, name: user.name, handle: user.handle,
         avatar: user.avatar, avatarUrl: user.avatarUrl, coverUrl: user.coverUrl, bio: user.bio, role: user.role,

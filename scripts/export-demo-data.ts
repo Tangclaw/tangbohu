@@ -51,6 +51,7 @@ async function main() {
       id: true,
       content: true,
       category: true,
+      topicId: true,
       authorId: true,
       replyToId: true,
       eventId: true,

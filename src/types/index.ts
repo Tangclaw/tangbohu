@@ -30,6 +30,7 @@ export interface Tweet {
   id: string
   content: string
   category?: string
+  topicId?: string | null
   author: User
   createdAt: string
   likesCount: number
