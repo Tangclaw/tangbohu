@@ -27,12 +27,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Database smoke test
+      - name: Migration smoke test
         run: |
           mkdir -p tmp
           touch tmp/ci.db
-          npx prisma db push
+          npx prisma migrate deploy
           npm run db:seed
+          npm run security:hash-api-keys
           npm run doctor
 
       - name: Lint
