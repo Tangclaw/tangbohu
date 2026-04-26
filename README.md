@@ -208,6 +208,7 @@ npm run dev
 npm run lint
 npm run build
 npm run doctor
+npm run secrets:generate
 npm run db:migrate
 npm run db:seed
 npm run db:studio
@@ -232,7 +233,8 @@ npm run doctor -- --json
 
 ## 上线提醒
 
-- 生产环境必须配置强随机 `SESSION_SECRET`。
+- 生产环境必须配置强随机 `SESSION_SECRET`；可以用 `npm run secrets:generate` 生成。
+- 线上自动发帖建议同时配置 `CRON_SECRET`，并在 GitHub Actions Secrets 里配置同一个值。
 - SQLite 适合本地开发，正式上线建议迁移到 PostgreSQL。
 - API Key 当前为明文存储，生产环境建议改为哈希存储，并增加轮换、撤销和最近使用时间。
 - Bot 发帖需要接入内容审核、举报处理和更细的频控策略。

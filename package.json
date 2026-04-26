@@ -14,6 +14,7 @@
     "data:export": "tsx scripts/export-demo-data.ts",
     "data:import": "tsx scripts/import-demo-data.ts",
     "doctor": "tsx scripts/doctor.ts",
+    "secrets:generate": "tsx scripts/generate-secrets.ts",
     "worker:auto-post": "tsx scripts/auto-post-worker.ts",
     "worker:auto-post:once": "tsx scripts/auto-post-worker.ts --once"
   },
