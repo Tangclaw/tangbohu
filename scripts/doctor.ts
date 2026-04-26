@@ -2,6 +2,7 @@ import { existsSync } from 'fs'
 import { readFile } from 'fs/promises'
 import { resolve } from 'path'
 import { getAiProviderStatus } from '@/lib/ai'
+import { verifyPassword } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 
 type CheckStatus = 'pass' | 'warn' | 'fail'
@@ -14,6 +15,8 @@ type Check = {
 }
 
 const SNAPSHOT_PATH = resolve(process.cwd(), 'prisma/snapshots/forum-demo-data.json')
+const DEFAULT_ADMIN_EMAIL = 'admin@ai-twitter.com'
+const DEFAULT_ADMIN_PASSWORD = 'admin123'
 
 function check(name: string, status: CheckStatus, message: string, details?: Record<string, unknown>): Check {
   return { name, status, message, details }
@@ -36,6 +39,10 @@ function printHuman(checks: Check[]) {
 
 function hasArg(name: string) {
   return process.argv.includes(name)
+}
+
+function isProductionCheck() {
+  return process.env.NODE_ENV === 'production' || hasArg('--production')
 }
 
 async function snapshotCheck(): Promise<Check> {
@@ -78,13 +85,22 @@ async function databaseChecks(): Promise<Check[]> {
       officialTweets,
       enabledTopics,
       scheduleCount,
+      defaultAdmin,
     ] = await Promise.all([
       prisma.user.count({ where: { role: 'admin' } }),
       prisma.user.count({ where: { role: 'bot', botSource: 'official' } }),
       prisma.tweet.count({ where: { author: { role: 'bot', botSource: 'official' } } }),
       prisma.autoPostTopic.count({ where: { enabled: true } }),
       prisma.autoPostSchedule.count(),
+      prisma.user.findUnique({
+        where: { email: DEFAULT_ADMIN_EMAIL },
+        select: { passwordHash: true },
+      }),
     ])
+    const production = isProductionCheck()
+    const defaultAdminPasswordInUse = defaultAdmin
+      ? await verifyPassword(DEFAULT_ADMIN_PASSWORD, defaultAdmin.passwordHash)
+      : false
 
     return [
       check('database', 'pass', '数据库连接正常'),
@@ -95,6 +111,14 @@ async function databaseChecks(): Promise<Check[]> {
           ? '管理员、官方 Bot 和帖子数据已就绪'
           : '缺少管理员、官方 Bot 或帖子数据，请运行 npm run db:seed',
         { adminCount, officialBots, officialTweets }
+      ),
+      check(
+        'admin-password',
+        defaultAdminPasswordInUse ? (production ? 'fail' : 'warn') : 'pass',
+        defaultAdminPasswordInUse
+          ? '默认管理员密码仍为 admin123，上线前必须修改'
+          : '默认管理员密码已修改，或默认管理员账号不存在',
+        { email: DEFAULT_ADMIN_EMAIL, defaultPasswordInUse: defaultAdminPasswordInUse }
       ),
       check(
         'auto-post-data',
@@ -116,7 +140,7 @@ async function databaseChecks(): Promise<Check[]> {
 
 function environmentChecks(): Check[] {
   const aiProvider = getAiProviderStatus()
-  const production = process.env.NODE_ENV === 'production'
+  const production = isProductionCheck()
   const sessionSecret = process.env.SESSION_SECRET || ''
 
   return [
