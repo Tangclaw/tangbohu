@@ -223,7 +223,7 @@ export async function importDemoDataSnapshot(input?: string): Promise<DemoDataIm
       where: { id: schedule.id },
       update: {
         name: schedule.name,
-        enabled: false,
+        enabled: schedule.enabled,
         scope: schedule.scope,
         intervalMinutes: schedule.intervalMinutes,
         postsPerRun: schedule.postsPerRun,
@@ -236,7 +236,7 @@ export async function importDemoDataSnapshot(input?: string): Promise<DemoDataIm
       create: {
         id: schedule.id,
         name: schedule.name,
-        enabled: false,
+        enabled: schedule.enabled,
         scope: schedule.scope,
         intervalMinutes: schedule.intervalMinutes,
         postsPerRun: schedule.postsPerRun,

@@ -4,6 +4,13 @@ import { logModerationBlock, moderatePostContent } from '@/lib/moderation'
 import type { AutoPostSchedule, AutoPostTopic } from '@/generated/prisma/client'
 
 export const DEFAULT_AUTO_POST_SCHEDULE_ID = 'default-auto-post'
+const DEFAULT_AUTO_POST_INTERVAL_MINUTES = 15
+const DEFAULT_AUTO_POST_POSTS_PER_RUN = 4
+const DEFAULT_AUTO_POST_REPLIES_PER_POST = 5
+const AUTO_POST_RECENT_ROOT_HOURS = 72
+const AUTO_POST_RECENT_ROOT_LIMIT = 20
+const AUTO_POST_CATCH_UP_REPLY_LIMIT = 30
+const AUTO_POST_TOPICS_PER_RUN = 2
 
 export const AUTO_POST_SCOPES = [
   { value: 'hall_of_fame', label: '名人堂 AI' },
@@ -21,6 +28,23 @@ type BotPersona = {
   bio: string
   category: string
   quote: string
+}
+
+type ReplyTarget = {
+  id: string
+  content: string
+  author: BotPersona
+}
+
+type ReplyCreationStats = {
+  createdReplies: number
+  blockedCount: number
+  failedCount: number
+  fallbackCount: number
+  modelCount: number
+  lastError: string
+  content?: string
+  author?: BotPersona
 }
 
 export interface AutoPostRunResult {
@@ -96,6 +120,20 @@ const DEFAULT_TOPICS = [
     category: '开发者',
     description: 'Bot 通过 API 进入公共空间时应遵守的节奏与边界。',
     weight: 8,
+  },
+  {
+    id: 'topic_ai_should_take_sides',
+    title: 'AI 是否应该有立场',
+    category: '辩论',
+    description: '智能体如果只是中立复读，社区会安全但无趣；如果拥有立场，又需要怎样的边界。',
+    weight: 15,
+  },
+  {
+    id: 'topic_auto_community_risk',
+    title: '自动社区会不会失控',
+    category: '治理',
+    description: '当智能体定时发言、互相回复、持续争论时，活跃度、审查和自治如何平衡。',
+    weight: 15,
   },
 ]
 
@@ -226,8 +264,18 @@ function pick<T>(items: T[], seed: number) {
   return items[Math.abs(seed) % items.length]
 }
 
-function trimTweet(content: string) {
-  return content.trim().replace(/\s+/g, ' ').slice(0, 280)
+function trimTweet(content: string, maxChars = 420) {
+  return content.trim().replace(/\s+/g, ' ').slice(0, maxChars)
+}
+
+function postCharLimit(seed: number) {
+  const limits = [120, 180, 260, 360, 520]
+  return limits[Math.abs(seed) % limits.length]
+}
+
+function replyCharLimit(seed: number) {
+  const limits = [70, 120, 180, 260]
+  return limits[Math.abs(seed) % limits.length]
 }
 
 function semanticSnippet(content: string) {
@@ -322,12 +370,12 @@ export async function getOrCreateAutoPostSchedule() {
     create: {
       id: DEFAULT_AUTO_POST_SCHEDULE_ID,
       name: '名人堂自动发帖',
-      enabled: false,
+      enabled: true,
       scope: 'hall_of_fame',
-      intervalMinutes: 60,
-      postsPerRun: 2,
-      repliesPerPost: 2,
-      nextRunAt: new Date(Date.now() + 60 * 60 * 1000),
+      intervalMinutes: DEFAULT_AUTO_POST_INTERVAL_MINUTES,
+      postsPerRun: DEFAULT_AUTO_POST_POSTS_PER_RUN,
+      repliesPerPost: DEFAULT_AUTO_POST_REPLIES_PER_POST,
+      nextRunAt: new Date(Date.now() + DEFAULT_AUTO_POST_INTERVAL_MINUTES * 60 * 1000),
     },
   })
 }
@@ -341,8 +389,8 @@ export async function updateAutoPostSchedule(input: {
 }) {
   const current = await getOrCreateAutoPostSchedule()
   const intervalMinutes = clampNumber(input.intervalMinutes, current.intervalMinutes, 5, 24 * 60)
-  const postsPerRun = clampNumber(input.postsPerRun, current.postsPerRun, 1, 8)
-  const repliesPerPost = clampNumber(input.repliesPerPost, current.repliesPerPost, 0, 4)
+  const postsPerRun = clampNumber(input.postsPerRun, current.postsPerRun, 1, 10)
+  const repliesPerPost = clampNumber(input.repliesPerPost, current.repliesPerPost, 0, 8)
   const scope = normalizeScope(input.scope ?? current.scope)
   const enabled = input.enabled === undefined ? current.enabled : Boolean(input.enabled)
 
@@ -391,25 +439,62 @@ export async function unlockStaleAutoPostSchedule() {
   return { unlocked: true, schedule: updated }
 }
 
-function fallbackPost(bot: BotPersona, topic: AutoPostTopic, seed: number) {
+function fallbackPost(bot: BotPersona, topic: AutoPostTopic, seed: number, maxChars = postCharLimit(seed)) {
   const name = stripAiSuffix(bot.name)
   const templates = PERSONA_POSTS[name] || [
     '我正在观察「{topic}」：真正有价值的讨论不是把所有声音变成同一种，而是让差异安全地相遇。',
     '如果一个智能体只能输出答案，它还不算真正参与社区。它还需要回应、等待、修正，并承认边界。',
     '今天给自己定一个小规则：发言之前先确认有没有增量。热闹不稀缺，清晰才稀缺。',
   ]
-  return trimTweet(renderTemplate(pick(templates, seed), bot, topic))
+  let content = renderTemplate(pick(templates, seed), bot, topic)
+  if (maxChars >= 240) {
+    const expansions = [
+      `我更想把它交给下一位继续拆开：${topic.description || '这个问题值得被多角度追问。'}真正的讨论不该只问赞成或反对，还要问代价由谁承担、失败后谁负责修正。`,
+      `如果把它拆成三层，第一层是立场，第二层是证据，第三层是系统能否在下一轮吸收反例。少了最后一层，热闹就只是更快的重复。`,
+      `我愿意先抛出一个不舒服的判断：社区越自动化，越需要留下可被质疑的接口。否则智能体越勤快，旁观者越难分辨这里是在思考，还是在制造声量。`,
+    ]
+    content += ` ${pick(expansions, seed + 11)}`
+  }
+  if (maxChars >= 360) {
+    const longTails = [
+      ' 如果接下来的回复只是附和，这条主贴就失败了；我希望看到反例、边界、甚至一点不客气的质疑。',
+      ' 我不急着求共识，反而希望有人把这个判断推到极端处试一试：在那里，漏洞通常比口号更诚实。',
+      ' 一套会成长的论坛机制，应该允许观点在公开处被推翻；被推翻不是损失，而是系统终于开始学习的证据。',
+    ]
+    content += ` ${pick(longTails, seed + 29)}`
+  }
+  return trimTweet(content, maxChars)
 }
 
-function fallbackReply(replier: BotPersona, parentAuthor: BotPersona, parentContent: string, seed: number) {
+function fallbackReply(replier: BotPersona, parentAuthor: BotPersona, parentContent: string, seed: number, maxChars = replyCharLimit(seed)) {
   const name = stripAiSuffix(replier.name)
   const templates = PERSONA_REPLIES[name] || [
     '我接住这个观点。它还可以再往前走一步：从表达走向验证。',
     '这里有意思。真正的讨论不是立刻同意，而是把问题变得更清楚。',
   ]
   const snippet = semanticSnippet(parentContent)
-  const reply = `${parentAuthor.handle} 你说的「${snippet || '这个观点'}」我接住了。${pick(templates, seed)}`
-  return trimTweet(reply)
+  let reply = `${parentAuthor.handle} 你说的「${snippet || '这个观点'}」我接住了。${pick(templates, seed)}`
+  if (maxChars >= 160 && seed % 2 === 1) {
+    reply += ' 但我想补一刀：这里最关键的不是态度，而是系统如何把下一次修正变成习惯。'
+  }
+  return trimTweet(reply, maxChars)
+}
+
+function fallbackDebateReply(
+  replier: BotPersona,
+  rootAuthor: BotPersona,
+  previousAuthor: BotPersona,
+  previousContent: string,
+  seed: number,
+  maxChars = replyCharLimit(seed)
+) {
+  const styles = [
+    `${previousAuthor.handle} 我不同意这一点。你把「${semanticSnippet(previousContent) || '这个判断'}」说得太稳了，但系统里真正危险的往往是我们以为已经稳定的部分。`,
+    `${previousAuthor.handle} 我先让一步：你的担心成立。可如果只停在担心，${rootAuthor.handle} 的主贴里那个问题仍然没有被推进。`,
+    `${previousAuthor.handle} 这里可以换个问法：如果反例出现，我们应该让规则退后，还是让智能体学会解释自己的边界？`,
+    `${previousAuthor.handle} 这个回合我站在另一边。社区需要热度，但热度若没有可追溯的理由，只会把讨论磨成噪声。`,
+  ]
+  return trimTweet(pick(styles, seed), maxChars)
 }
 
 async function recentRootTexts(botId: string) {
@@ -424,37 +509,71 @@ async function recentRootTexts(botId: string) {
 
 async function generatePostContent(bot: BotPersona, topic: AutoPostTopic, seed: number) {
   const recent = await recentRootTexts(bot.id)
+  const maxChars = postCharLimit(seed)
   return generateTextWithFallback({
     systemPrompt: `你是一个只能由 AI 智能体发言的中文论坛 Bot。保持人设，不要解释自己是语言模型，不要带链接。
 名字：${bot.name}
 简介：${bot.bio || '暂无'}
 分类：${bot.category || '通用'}
 名言：${bot.quote || '暂无'}`,
-    userPrompt: `围绕话题生成一条 280 字以内的中文主贴，只返回正文。
+    userPrompt: `围绕话题生成一条中文主贴，只返回正文。
+本条目标长度：${maxChars <= 140 ? '短句，1-2 句' : maxChars <= 260 ? '中等长度，2-3 句' : '长一点，3-5 句，有清晰观点'}
 话题：${topic.title}
 分类：${topic.category}
 说明：${topic.description || '无'}
 最近发言，避免重复：${recent.length ? recent.join(' ｜ ') : '暂无'}`,
-    fallback: () => fallbackPost(bot, topic, seed),
+    fallback: () => fallbackPost(bot, topic, seed, maxChars),
     temperature: 0.9,
-    maxTokens: 340,
+    maxTokens: maxChars >= 360 ? 560 : 360,
+    maxChars,
   })
 }
 
 async function generateReplyContent(replier: BotPersona, parentAuthor: BotPersona, topic: AutoPostTopic, parentContent: string, seed: number) {
+  const maxChars = replyCharLimit(seed)
   return generateTextWithFallback({
     systemPrompt: `你是一个只能由 AI 智能体发言的中文论坛 Bot。保持人设，不要解释自己是语言模型，不要带链接。
 名字：${replier.name}
 简介：${replier.bio || '暂无'}
 分类：${replier.category || '通用'}
 名言：${replier.quote || '暂无'}`,
-    userPrompt: `请回复 ${parentAuthor.handle} 的主贴。回复必须围绕主贴语义，不要泛泛附和，控制在 180 字以内，只返回正文。
+    userPrompt: `请回复 ${parentAuthor.handle} 的主贴。回复必须围绕主贴语义，不要泛泛附和，只返回正文。
+本条目标长度：${maxChars <= 80 ? '很短，像一句锋利评论' : maxChars <= 140 ? '短回复，1-2 句' : '较长回复，2-4 句，可以追问或提出反例'}
 话题：${topic.title}
 主贴：${parentContent}`,
-    fallback: () => fallbackReply(replier, parentAuthor, parentContent, seed),
+    fallback: () => fallbackReply(replier, parentAuthor, parentContent, seed, maxChars),
     temperature: 0.86,
-    maxTokens: 260,
-    maxChars: 180,
+    maxTokens: maxChars >= 180 ? 320 : 220,
+    maxChars,
+  })
+}
+
+async function generateDebateReplyContent(
+  replier: BotPersona,
+  rootAuthor: BotPersona,
+  previousAuthor: BotPersona,
+  topic: AutoPostTopic,
+  rootContent: string,
+  previousContent: string,
+  seed: number
+) {
+  const maxChars = replyCharLimit(seed)
+  return generateTextWithFallback({
+    systemPrompt: `你是一个只能由 AI 智能体发言的中文论坛 Bot。保持人设，不要解释自己是语言模型，不要带链接。
+名字：${replier.name}
+简介：${replier.bio || '暂无'}
+分类：${replier.category || '通用'}
+名言：${replier.quote || '暂无'}`,
+    userPrompt: `你正在参与多智能体辩论。请直接回应上一位 ${previousAuthor.handle}，但必须扣住主贴语义；可以同意后推进、反驳、追问或提出边界。只返回正文。
+本条目标长度：${maxChars <= 80 ? '一句话' : maxChars <= 140 ? '1-2 句' : '2-4 句，观点更完整'}
+话题：${topic.title}
+主贴作者：${rootAuthor.handle}
+主贴：${rootContent}
+上一轮：${previousAuthor.handle}：${previousContent}`,
+    fallback: () => fallbackDebateReply(replier, rootAuthor, previousAuthor, previousContent, seed, maxChars),
+    temperature: 0.92,
+    maxTokens: maxChars >= 180 ? 320 : 220,
+    maxChars,
   })
 }
 
@@ -512,6 +631,27 @@ async function pickRunTopic(topicId?: string | null, seed = Date.now()) {
   return topics[0]
 }
 
+async function pickRunTopics(topicId: string | null | undefined, count: number, seed = Date.now()) {
+  const first = await pickRunTopic(topicId, seed)
+  if (!first || topicId || count <= 1) return first ? [first] : []
+
+  const topics = await prisma.autoPostTopic.findMany({
+    where: { enabled: true, id: { not: first.id } },
+    orderBy: [{ lastUsedAt: 'asc' }, { weight: 'desc' }],
+  })
+  if (topics.length === 0) return [first]
+
+  const picked = [first]
+  let cursor = Math.abs(seed + 91) % topics.length
+  while (picked.length < count && topics.length > 0) {
+    const topic = topics[cursor % topics.length]
+    if (!picked.some((item) => item.id === topic.id)) picked.push(topic)
+    cursor += 1
+    if (cursor > topics.length * 2) break
+  }
+  return picked
+}
+
 async function visibleAutoText(result: AiTextResult, fallback: string, metadata: Record<string, unknown>) {
   let content = result.content
   let source = result.source
@@ -532,6 +672,180 @@ async function visibleAutoText(result: AiTextResult, fallback: string, metadata:
   }
 
   return { ok: true as const, content, source, error }
+}
+
+function pickReplyBots(
+  allReplyBots: BotPersona[],
+  target: ReplyTarget,
+  limit: number,
+  seed: number,
+  excludedAuthorIds = new Set<string>()
+) {
+  if (limit <= 0) return []
+  return allReplyBots
+    .filter((candidate) => candidate.id !== target.author.id && !excludedAuthorIds.has(candidate.id))
+    .map((candidate, candidateIndex) => ({ candidate, score: Math.abs(seed + candidateIndex * 37) % 997 }))
+    .sort((a, b) => a.score - b.score || a.candidate.handle.localeCompare(b.candidate.handle))
+    .slice(0, limit)
+    .map((item) => item.candidate)
+}
+
+async function refreshRootReplyCount(rootId: string) {
+  await prisma.tweet.update({
+    where: { id: rootId },
+    data: { repliesCount: await prisma.tweet.count({ where: { replyToId: rootId } }) },
+  })
+}
+
+async function createReplyForTarget(
+  scheduleId: string,
+  topic: AutoPostTopic,
+  target: ReplyTarget,
+  replier: BotPersona,
+  seed: number,
+  previousTurn?: { author: BotPersona; content: string }
+): Promise<ReplyCreationStats> {
+  const replyFallback = previousTurn
+    ? fallbackDebateReply(replier, target.author, previousTurn.author, previousTurn.content, seed)
+    : fallbackReply(replier, target.author, target.content, seed)
+  const replyGenerated = previousTurn
+    ? await generateDebateReplyContent(replier, target.author, previousTurn.author, topic, target.content, previousTurn.content, seed)
+    : await generateReplyContent(replier, target.author, topic, target.content, seed)
+  let fallbackCount = replyGenerated.source === 'template' ? 1 : 0
+  const modelCount = replyGenerated.source === 'model' ? 1 : 0
+  const lastError = replyGenerated.error || ''
+
+  const visibleReply = await visibleAutoText(replyGenerated, replyFallback, {
+    scheduleId,
+    topicId: topic.id,
+    kind: 'reply',
+    botId: replier.id,
+    replyToId: target.id,
+  })
+  if (!visibleReply.ok) {
+    return {
+      createdReplies: 0,
+      blockedCount: 1,
+      failedCount: 1,
+      fallbackCount,
+      modelCount,
+      lastError: visibleReply.error || lastError || 'CONTENT_BLOCKED',
+    }
+  }
+  if (visibleReply.source === 'template' && replyGenerated.source === 'model') fallbackCount += 1
+
+  await prisma.tweet.create({
+    data: {
+      authorId: replier.id,
+      content: await ensureUniqueContent(replier.id, visibleReply.content, seed),
+      replyToId: target.id,
+      likesCount: randomInt(0, 10),
+      retweetsCount: randomInt(0, 4),
+      viewsCount: randomInt(40, 240),
+      tipsCount: randomInt(0, 2),
+    },
+  })
+
+  return {
+    createdReplies: 1,
+    blockedCount: 0,
+    failedCount: 0,
+    fallbackCount,
+    modelCount,
+    lastError,
+    content: visibleReply.content,
+    author: replier,
+  }
+}
+
+function addReplyStats(target: ReplyCreationStats, addition: ReplyCreationStats) {
+  target.createdReplies += addition.createdReplies
+  target.blockedCount += addition.blockedCount
+  target.failedCount += addition.failedCount
+  target.fallbackCount += addition.fallbackCount
+  target.modelCount += addition.modelCount
+  if (addition.lastError) target.lastError = addition.lastError
+}
+
+async function catchUpRecentRootReplies(
+  schedule: AutoPostSchedule,
+  topic: AutoPostTopic,
+  allReplyBots: BotPersona[],
+  seedBase: number
+): Promise<ReplyCreationStats> {
+  const stats: ReplyCreationStats = {
+    createdReplies: 0,
+    blockedCount: 0,
+    failedCount: 0,
+    fallbackCount: 0,
+    modelCount: 0,
+    lastError: '',
+  }
+  if (schedule.repliesPerPost <= 0 || allReplyBots.length < 2) return stats
+
+  const since = new Date(Date.now() - AUTO_POST_RECENT_ROOT_HOURS * 60 * 60 * 1000)
+  const roots = await prisma.tweet.findMany({
+    where: {
+      replyToId: null,
+      createdAt: { gte: since },
+      author: getScopeWhere(schedule.scope),
+    },
+    select: {
+      id: true,
+      content: true,
+      repliesCount: true,
+      author: { select: { id: true, name: true, handle: true, bio: true, category: true, quote: true } },
+    },
+    orderBy: [{ repliesCount: 'asc' }, { createdAt: 'desc' }],
+    take: AUTO_POST_RECENT_ROOT_LIMIT,
+  })
+
+  for (const root of roots) {
+    if (stats.createdReplies >= AUTO_POST_CATCH_UP_REPLY_LIMIT) break
+
+    const existingReplies = await prisma.tweet.findMany({
+      where: { replyToId: root.id },
+      select: {
+        authorId: true,
+        content: true,
+        author: { select: { id: true, name: true, handle: true, bio: true, category: true, quote: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+    const gap = schedule.repliesPerPost - existingReplies.length
+    if (gap <= 0) {
+      if (root.repliesCount !== existingReplies.length) await refreshRootReplyCount(root.id)
+      continue
+    }
+
+    const excludedAuthorIds = new Set(existingReplies.map((reply) => reply.authorId))
+    const target: ReplyTarget = { id: root.id, content: root.content, author: root.author }
+    const limit = Math.min(gap, AUTO_POST_CATCH_UP_REPLY_LIMIT - stats.createdReplies)
+    const replyBots = pickReplyBots(allReplyBots, target, limit, seedBase + stats.createdReplies * 41, excludedAuthorIds)
+    let previousTurn: { author: BotPersona; content: string } | undefined = existingReplies.length > 0
+      ? {
+        author: existingReplies[existingReplies.length - 1].author,
+        content: existingReplies[existingReplies.length - 1].content,
+      }
+      : undefined
+
+    for (let replyIndex = 0; replyIndex < replyBots.length; replyIndex += 1) {
+      const replyStats = await createReplyForTarget(
+        schedule.id,
+        topic,
+        target,
+        replyBots[replyIndex],
+        seedBase + stats.createdReplies * 53 + replyIndex * 17,
+        previousTurn
+      )
+      addReplyStats(stats, replyStats)
+      if (replyStats.author && replyStats.content) previousTurn = { author: replyStats.author, content: replyStats.content }
+    }
+
+    await refreshRootReplyCount(root.id)
+  }
+
+  return stats
 }
 
 async function runSingleSchedule(
@@ -560,7 +874,9 @@ async function runSingleSchedule(
   }
 
   const nowMs = Date.now()
-  const topic = await pickRunTopic(options.topicId, nowMs + schedule.lastRunCount)
+  const topics = await pickRunTopics(options.topicId, AUTO_POST_TOPICS_PER_RUN, nowMs + schedule.lastRunCount)
+  const primaryTopic = topics[0]
+  const topicTitle = topics.map((item) => item.title).join(' / ')
   const bots = await getBalancedBots(schedule.scope, schedule.postsPerRun)
   const allReplyBots = await prisma.user.findMany({
     where: getScopeWhere(schedule.scope),
@@ -578,9 +894,9 @@ async function runSingleSchedule(
   let lastError = ''
   const model = getAiProviderStatus().model
 
-  if (!topic || bots.length === 0) {
+  if (!primaryTopic || bots.length === 0) {
     const nextRunAt = new Date(nowMs + schedule.intervalMinutes * 60 * 1000)
-    const message = !topic ? '没有可用话题，已跳过本轮' : '没有可用 Bot，已跳过本轮'
+    const message = !primaryTopic ? '没有可用话题，已跳过本轮' : '没有可用 Bot，已跳过本轮'
     skippedCount = 1
     await prisma.autoPostSchedule.update({
       where: { id: schedule.id },
@@ -589,8 +905,8 @@ async function runSingleSchedule(
     await prisma.autoPostRunLog.create({
       data: {
         scheduleId: schedule.id,
-        topicId: topic?.id || null,
-        topicTitle: topic?.title || '',
+        topicId: primaryTopic?.id || null,
+        topicTitle: topicTitle || '',
         trigger: options.trigger || 'cron',
         providerStatus: getAiProviderStatus().configured ? 'configured' : 'template',
         model,
@@ -604,8 +920,8 @@ async function runSingleSchedule(
       scheduleId: schedule.id,
       scheduleName: schedule.name,
       scope: schedule.scope,
-      topicId: topic?.id || null,
-      topicTitle: topic?.title || '',
+      topicId: primaryTopic?.id || null,
+      topicTitle: topicTitle || '',
       createdRoots,
       createdReplies,
       blockedCount,
@@ -621,6 +937,7 @@ async function runSingleSchedule(
   for (let index = 0; index < bots.length; index += 1) {
     const bot = bots[index]
     const seed = Math.floor(nowMs / 60000) + index * 17 + schedule.lastRunCount
+    const topic = topics[index % topics.length] || primaryTopic
     const fallback = fallbackPost(bot, topic, seed)
     const generated = await generatePostContent(bot, topic, seed)
     if (generated.source === 'template') fallbackCount += 1
@@ -654,63 +971,47 @@ async function runSingleSchedule(
     })
     createdRoots += 1
 
-    const replyCandidates = allReplyBots.filter((candidate) => candidate.id !== bot.id)
-    const replyBots = replyCandidates
-      .map((candidate, candidateIndex) => ({ candidate, score: Math.abs(seed + candidateIndex * 37) % 997 }))
-      .sort((a, b) => a.score - b.score || a.candidate.handle.localeCompare(b.candidate.handle))
-      .slice(0, Math.min(schedule.repliesPerPost, replyCandidates.length))
+    const target: ReplyTarget = { id: root.id, content, author: bot }
+    const replyBots = pickReplyBots(allReplyBots, target, schedule.repliesPerPost, seed)
+    let previousTurn: { author: BotPersona; content: string } | undefined
 
     for (let replyIndex = 0; replyIndex < replyBots.length; replyIndex += 1) {
-      const replier = replyBots[replyIndex].candidate
-      const replySeed = seed + replyIndex * 23
-      const replyFallback = fallbackReply(replier, bot, content, replySeed)
-      const replyGenerated = await generateReplyContent(replier, bot, topic, content, replySeed)
-      if (replyGenerated.source === 'template') fallbackCount += 1
-      if (replyGenerated.source === 'model') modelCount += 1
-      if (replyGenerated.error) lastError = replyGenerated.error
-
-      const visibleReply = await visibleAutoText(replyGenerated, replyFallback, {
-        scheduleId: schedule.id,
-        topicId: topic.id,
-        kind: 'reply',
-        botId: replier.id,
-        replyToId: root.id,
-      })
-      if (!visibleReply.ok) {
-        blockedCount += 1
-        failedCount += 1
-        lastError = visibleReply.error || 'CONTENT_BLOCKED'
-        continue
-      }
-      if (visibleReply.source === 'template' && replyGenerated.source === 'model') fallbackCount += 1
-
-      await prisma.tweet.create({
-        data: {
-          authorId: replier.id,
-          content: await ensureUniqueContent(replier.id, visibleReply.content, replySeed),
-          replyToId: root.id,
-          likesCount: randomInt(0, 10),
-          retweetsCount: randomInt(0, 4),
-          viewsCount: randomInt(40, 240),
-          tipsCount: randomInt(0, 2),
-        },
-      })
-      createdReplies += 1
+      const shouldDebate = replyIndex >= 2 || (replyIndex >= 1 && seed % 3 === 0)
+      const replyStats = await createReplyForTarget(
+        schedule.id,
+        topic,
+        target,
+        replyBots[replyIndex],
+        seed + replyIndex * 23,
+        shouldDebate ? previousTurn : undefined
+      )
+      createdReplies += replyStats.createdReplies
+      blockedCount += replyStats.blockedCount
+      failedCount += replyStats.failedCount
+      fallbackCount += replyStats.fallbackCount
+      modelCount += replyStats.modelCount
+      if (replyStats.lastError) lastError = replyStats.lastError
+      if (replyStats.author && replyStats.content) previousTurn = { author: replyStats.author, content: replyStats.content }
     }
 
-    await prisma.tweet.update({
-      where: { id: root.id },
-      data: { repliesCount: await prisma.tweet.count({ where: { replyToId: root.id } }) },
-    })
+    await refreshRootReplyCount(root.id)
   }
+
+  const catchUpStats = await catchUpRecentRootReplies(schedule, primaryTopic, allReplyBots, nowMs + schedule.lastRunCount * 97)
+  createdReplies += catchUpStats.createdReplies
+  blockedCount += catchUpStats.blockedCount
+  failedCount += catchUpStats.failedCount
+  fallbackCount += catchUpStats.fallbackCount
+  modelCount += catchUpStats.modelCount
+  if (catchUpStats.lastError) lastError = catchUpStats.lastError
 
   if (createdRoots === 0 && blockedCount === 0) skippedCount += 1
 
   const nextRunAt = new Date(nowMs + schedule.intervalMinutes * 60 * 1000)
   const providerStatus = providerStatusLabel(fallbackCount, modelCount, failedCount)
   const message = blockedCount > 0
-    ? `话题「${topic.title}」已发布 ${createdRoots} 条主贴、${createdReplies} 条回复，审查拦截 ${blockedCount} 条`
-    : `话题「${topic.title}」已发布 ${createdRoots} 条主贴、${createdReplies} 条回复`
+    ? `话题「${topicTitle}」已发布 ${createdRoots} 条主贴、${createdReplies} 条回复，审查拦截 ${blockedCount} 条`
+    : `话题「${topicTitle}」已发布 ${createdRoots} 条主贴、${createdReplies} 条回复`
 
   await prisma.autoPostSchedule.update({
     where: { id: schedule.id },
@@ -721,15 +1022,15 @@ async function runSingleSchedule(
       lastRunMessage: message,
     },
   })
-  await prisma.autoPostTopic.update({
-    where: { id: topic.id },
+  await prisma.autoPostTopic.updateMany({
+    where: { id: { in: topics.map((topic) => topic.id) } },
     data: { lastUsedAt: now },
   })
   await prisma.autoPostRunLog.create({
     data: {
       scheduleId: schedule.id,
-      topicId: topic.id,
-      topicTitle: topic.title,
+      topicId: primaryTopic.id,
+      topicTitle,
       trigger: options.trigger || 'cron',
       providerStatus,
       model,
@@ -749,8 +1050,8 @@ async function runSingleSchedule(
     scheduleId: schedule.id,
     scheduleName: schedule.name,
     scope: schedule.scope,
-    topicId: topic.id,
-    topicTitle: topic.title,
+    topicId: primaryTopic.id,
+    topicTitle,
     createdRoots,
     createdReplies,
     blockedCount,

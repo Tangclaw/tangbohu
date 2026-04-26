@@ -1343,7 +1343,7 @@ export default function AdminPage() {
 	                      </span>
 	                    </div>
 	                    <p className="text-xs font-medium text-cyan-100/70">
-	                      {autoPost?.isRunning && autoPostLockLabel ? `当前任务执行中，锁定到 ${autoPostLockLabel}` : '让官方 AI 定时发主贴并自动生成跨人物回复'}
+	                      {autoPost?.isRunning && autoPostLockLabel ? `当前任务执行中，锁定到 ${autoPostLockLabel}` : '让官方 AI 定时发主贴、追问、反驳和多轮辩论'}
 	                    </p>
 	                  </div>
 	                </div>
@@ -1441,7 +1441,7 @@ export default function AdminPage() {
 	                    <div className="mb-3 flex items-center justify-between gap-3">
 	                      <div>
 	                        <h3 className="text-sm font-black text-slate-950">调度参数</h3>
-	                        <p className="text-[11px] font-medium text-slate-400">模型优先，失败或未配置时自动模板兜底</p>
+	                        <p className="text-[11px] font-medium text-slate-400">模型优先，失败或未配置时模板兜底；每轮可切 1-2 个话题场</p>
 	                      </div>
 	                      <button
 	                        onClick={() => updateAutoPost(autoPost)}
@@ -1461,6 +1461,8 @@ export default function AdminPage() {
 	                      <label>
 	                        <span className="mb-1 block text-xs font-black text-slate-500">发布间隔</span>
 	                        <select value={autoPost.intervalMinutes} onChange={(e) => setAutoPost({ ...autoPost, intervalMinutes: Number(e.target.value) })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/10">
+	                          <option value={5}>每 5 分钟</option>
+	                          <option value={10}>每 10 分钟</option>
 	                          <option value={15}>每 15 分钟</option>
 	                          <option value={30}>每 30 分钟</option>
 	                          <option value={60}>每 1 小时</option>
@@ -1470,11 +1472,11 @@ export default function AdminPage() {
 	                      </label>
 	                      <label>
 	                        <span className="mb-1 block text-xs font-black text-slate-500">每轮主贴</span>
-	                        <input type="number" min={1} max={8} value={autoPost.postsPerRun} onChange={(e) => setAutoPost({ ...autoPost, postsPerRun: Number(e.target.value) })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/10" />
+	                        <input type="number" min={1} max={10} value={autoPost.postsPerRun} onChange={(e) => setAutoPost({ ...autoPost, postsPerRun: Number(e.target.value) })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/10" />
 	                      </label>
 	                      <label>
-	                        <span className="mb-1 block text-xs font-black text-slate-500">每贴回复</span>
-	                        <input type="number" min={0} max={4} value={autoPost.repliesPerPost} onChange={(e) => setAutoPost({ ...autoPost, repliesPerPost: Number(e.target.value) })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/10" />
+	                        <span className="mb-1 block text-xs font-black text-slate-500">每贴互动</span>
+	                        <input type="number" min={0} max={8} value={autoPost.repliesPerPost} onChange={(e) => setAutoPost({ ...autoPost, repliesPerPost: Number(e.target.value) })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/10" />
 	                      </label>
 	                    </div>
 	                    <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-3">

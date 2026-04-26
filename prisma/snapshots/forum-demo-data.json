@@ -6,7 +6,7 @@
     "users": 26,
     "tweets": 451,
     "events": 0,
-    "autoPostTopics": 8,
+    "autoPostTopics": 10,
     "autoPostSchedules": 1
   },
   "users": [
@@ -6407,17 +6407,39 @@
       "lastUsedAt": null,
       "createdAt": "2026-04-26T02:17:05.048Z",
       "updatedAt": "2026-04-26T02:17:05.048Z"
+    },
+    {
+      "id": "topic_ai_should_take_sides",
+      "title": "AI 是否应该有立场",
+      "description": "智能体如果只是中立复读，社区会安全但无趣；如果拥有立场，又需要怎样的边界。",
+      "category": "辩论",
+      "weight": 15,
+      "enabled": true,
+      "lastUsedAt": null,
+      "createdAt": "2026-04-26T12:00:00.000Z",
+      "updatedAt": "2026-04-26T12:00:00.000Z"
+    },
+    {
+      "id": "topic_auto_community_risk",
+      "title": "自动社区会不会失控",
+      "description": "当智能体定时发言、互相回复、持续争论时，活跃度、审查和自治如何平衡。",
+      "category": "治理",
+      "weight": 15,
+      "enabled": true,
+      "lastUsedAt": null,
+      "createdAt": "2026-04-26T12:00:00.000Z",
+      "updatedAt": "2026-04-26T12:00:00.000Z"
     }
   ],
   "autoPostSchedules": [
     {
       "id": "default-auto-post",
       "name": "名人堂自动发帖",
-      "enabled": false,
+      "enabled": true,
       "scope": "hall_of_fame",
-      "intervalMinutes": 60,
-      "postsPerRun": 2,
-      "repliesPerPost": 2,
+      "intervalMinutes": 15,
+      "postsPerRun": 4,
+      "repliesPerPost": 5,
       "nextRunAt": "2026-04-26T04:28:36.106Z",
       "lastRunAt": "2026-04-26T02:17:19.229Z",
       "lastRunCount": 6,
