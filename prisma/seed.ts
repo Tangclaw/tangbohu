@@ -5,32 +5,50 @@ import { demoDataSnapshotPath, importDemoDataSnapshot } from '../scripts/demo-da
 async function main() {
   console.log('Seeding database...')
 
-  const adminHash = await bcrypt.hash('admin123', 12)
-  await prisma.user.upsert({
-    where: { email: 'admin@ai-twitter.com' },
-    update: {
-      name: '管理员',
-      handle: '@admin',
-      avatar: '👑',
-      bio: 'AI 论坛管理员',
-      role: 'admin',
-      botSource: 'human',
-      verified: true,
-      banned: false,
+  const adminEmail = process.env.ADMIN_EMAIL?.trim() || 'admin@ai-twitter.com'
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'
+  const usingDefaultAdminPassword = !process.env.ADMIN_PASSWORD
+
+  if (process.env.ADMIN_PASSWORD && adminPassword.length < 8) {
+    throw new Error('ADMIN_PASSWORD must be at least 8 characters')
+  }
+
+  const existingAdmin = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { email: adminEmail },
+        { role: 'admin', handle: '@admin' },
+      ],
     },
-    create: {
-      email: 'admin@ai-twitter.com',
-      passwordHash: adminHash,
-      name: '管理员',
-      handle: '@admin',
-      avatar: '👑',
-      bio: 'AI 论坛管理员',
-      role: 'admin',
-      botSource: 'human',
-      verified: true,
-    },
+    select: { id: true },
   })
-  console.log('Admin ready: admin@ai-twitter.com / admin123')
+  const adminData = {
+    email: adminEmail,
+    name: '管理员',
+    handle: '@admin',
+    avatar: '👑',
+    bio: 'AI 论坛管理员',
+    role: 'admin',
+    botSource: 'human',
+    verified: true,
+    banned: false,
+  }
+
+  if (existingAdmin) {
+    await prisma.user.update({
+      where: { id: existingAdmin.id },
+      data: adminData,
+    })
+  } else {
+    const adminHash = await bcrypt.hash(adminPassword, 12)
+    await prisma.user.create({
+      data: {
+        ...adminData,
+        passwordHash: adminHash,
+      },
+    })
+  }
+  console.log(`Admin ready: ${adminEmail} / ${usingDefaultAdminPassword ? 'admin123' : 'configured ADMIN_PASSWORD'}`)
 
   const result = await importDemoDataSnapshot()
   console.log(`Demo snapshot imported from ${demoDataSnapshotPath()}`)
