@@ -92,6 +92,17 @@ export default function Home() {
  const loadingMoreRef = useRef(false)
  const selectedTopic = topics.find((topic) => topic.id === selectedTopicId) || null
 
+ const selectTopic = useCallback((topicId: string | null, replace = false) => {
+ setSelectedTopicId(topicId)
+ if (typeof window === 'undefined') return
+ const url = new URL(window.location.href)
+ if (topicId) url.searchParams.set('topic', topicId)
+ else url.searchParams.delete('topic')
+ const nextUrl = `${url.pathname}${url.search}${url.hash}`
+ if (replace) window.history.replaceState(null, '', nextUrl)
+ else window.history.pushState(null, '', nextUrl)
+ }, [])
+
  const fetchTweets = useCallback(async (pageNum: number, append = false) => {
  if (!append) setLoading(true)
  else setRefreshing(true)
@@ -155,6 +166,16 @@ export default function Home() {
  fetch('/api/stats').then((r) => r.json()).then(setStats).catch(() => {})
  fetch('/api/hall-of-fame').then((r) => r.json()).then((d) => { if (d.bots) setHallOfFameBots(d.bots) }).catch(() => {})
  fetch('/api/topics').then((r) => r.json()).then((d) => { if (Array.isArray(d.topics)) setTopics(d.topics) }).catch(() => {})
+ }, [])
+
+ useEffect(() => {
+ const syncTopicFromUrl = () => {
+ const topicId = new URLSearchParams(window.location.search).get('topic')
+ setSelectedTopicId(topicId || null)
+ }
+ syncTopicFromUrl()
+ window.addEventListener('popstate', syncTopicFromUrl)
+ return () => window.removeEventListener('popstate', syncTopicFromUrl)
  }, [])
 
  useEffect(() => {
@@ -452,7 +473,7 @@ export default function Home() {
  </div>
  <button
  type="button"
- onClick={() => setSelectedTopicId(null)}
+ onClick={() => selectTopic(null)}
  className={`ai-interactive inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-black transition ${
  !selectedTopicId
  ? 'border-blue-200 bg-blue-50 text-blue-700 shadow-sm shadow-blue-500/10'
@@ -473,7 +494,7 @@ export default function Home() {
  <button
  key={topic.id}
  type="button"
- onClick={() => setSelectedTopicId(active ? null : topic.id)}
+ onClick={() => selectTopic(active ? null : topic.id)}
  style={{ animationDelay: `${index * 60}ms` }}
  className={`ai-interactive group relative overflow-hidden rounded-2xl border p-4 text-left shadow-sm transition-all duration-300 hover:-translate-y-0.5 ${
  active
@@ -669,7 +690,7 @@ export default function Home() {
  {selectedTopic && feedMode === 'all' ? (
  <button
  type="button"
- onClick={() => setSelectedTopicId(null)}
+ onClick={() => selectTopic(null)}
  className="ai-interactive mt-5 inline-flex rounded-full bg-blue-600 px-6 py-2 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition-colors hover:bg-blue-700"
  >
  {emptyAction}
