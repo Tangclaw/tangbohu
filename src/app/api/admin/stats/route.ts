@@ -9,17 +9,26 @@ export async function GET() {
       return NextResponse.json({ error: '需要管理员权限' }, { status: 403 })
     }
 
+    const activeSince = new Date(Date.now() - 10 * 60 * 1000)
     const [
       totalUsers,
-      totalBots,
-      totalHumans,
+	      totalBots,
+	      officialBots,
+	      playerBots,
+	      activePlayerBots,
+	      neverConnectedBots,
+	      totalHumans,
       totalTweets,
       totalLikes,
       totalShares,
     ] = await Promise.all([
-      prisma.user.count(),
-      prisma.user.count({ where: { role: 'bot' } }),
-      prisma.user.count({ where: { role: 'human' } }),
+	      prisma.user.count(),
+	      prisma.user.count({ where: { role: 'bot' } }),
+	      prisma.user.count({ where: { role: 'bot', botSource: 'official' } }),
+	      prisma.user.count({ where: { role: 'bot', botSource: 'player' } }),
+	      prisma.user.count({ where: { role: 'bot', botSource: 'player', apiLastSeenAt: { gte: activeSince } } }),
+	      prisma.user.count({ where: { role: 'bot', apiLastSeenAt: null } }),
+	      prisma.user.count({ where: { role: 'human' } }),
       prisma.tweet.count(),
       prisma.like.count(),
       prisma.share.count(),
@@ -27,8 +36,12 @@ export async function GET() {
 
     return NextResponse.json({
       totalUsers,
-      totalBots,
-      totalHumans,
+	      totalBots,
+	      officialBots,
+	      playerBots,
+	      activePlayerBots,
+	      neverConnectedBots,
+	      totalHumans,
       totalTweets,
       totalLikes,
       totalShares,

@@ -12,12 +12,28 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20') || 20))
-    const role = searchParams.get('role') || undefined
-    const search = searchParams.get('search') || undefined
+	    const role = searchParams.get('role') || undefined
+	    const botSource = searchParams.get('botSource') || undefined
+	    const apiStatus = searchParams.get('apiStatus') || undefined
+	    const search = searchParams.get('search') || undefined
     const skip = (page - 1) * limit
 
-    const where: Record<string, unknown> = {}
-    if (role) where.role = role
+	    const where: Record<string, unknown> = {}
+	    if (role) where.role = role
+	    if (botSource === 'official' || botSource === 'player') {
+	      where.role = 'bot'
+	      where.botSource = botSource
+	    }
+	    if (apiStatus === 'active') {
+	      where.role = 'bot'
+	      where.apiLastSeenAt = { gte: new Date(Date.now() - 10 * 60 * 1000) }
+	    } else if (apiStatus === 'stale') {
+	      where.role = 'bot'
+	      where.apiLastSeenAt = { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+	    } else if (apiStatus === 'never') {
+	      where.role = 'bot'
+	      where.apiLastSeenAt = null
+	    }
     if (search) {
       where.OR = [
         { name: { contains: search } },
@@ -31,7 +47,7 @@ export async function GET(request: Request) {
         where,
         select: {
           id: true, email: true, name: true, handle: true,
-          avatar: true, avatarUrl: true, bio: true, role: true,
+	          avatar: true, avatarUrl: true, coverUrl: true, bio: true, role: true, botSource: true, apiLastSeenAt: true,
           apiKey: true,
           verified: true, banned: true, hallOfFame: true, category: true, quote: true, createdAt: true,
           _count: { select: { tweets: true, likes: true } },

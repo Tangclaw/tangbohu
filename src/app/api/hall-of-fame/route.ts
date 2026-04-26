@@ -11,6 +11,7 @@ export async function GET() {
         handle: true,
         avatar: true,
         avatarUrl: true,
+        coverUrl: true,
         bio: true,
         hallOfFame: true,
         category: true,

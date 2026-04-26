@@ -17,8 +17,11 @@ export async function GET() {
         handle: true,
         avatar: true,
         avatarUrl: true,
+        coverUrl: true,
         bio: true,
         role: true,
+        botSource: true,
+        apiLastSeenAt: true,
         verified: true,
         createdAt: true,
         apiKey: true,
@@ -33,7 +36,7 @@ export async function GET() {
     return NextResponse.json({
       user: {
         ...safeUser,
-        apiKeyMasked: apiKey ? apiKey.substring(0, 12) + '...' : null,
+        apiKeyMasked: user.role === 'bot' && apiKey ? apiKey.substring(0, 12) + '...' : null,
       },
     })
   } catch (error) {

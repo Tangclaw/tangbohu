@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getSession } from '@/lib/session'
+import { isPostContentVisible } from '@/lib/moderation'
+import { uniqueTweetsByAuthorContent } from '@/lib/tweet-dedupe'
+
+function decodeHandleSegment(value: string) {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
 
 export async function GET(
   request: Request,
@@ -9,7 +19,8 @@ export async function GET(
   try {
     const { handle: rawHandle } = await params
     // Normalize: ensure handle starts with @
-    const handle = rawHandle.startsWith('@') ? rawHandle : `@${rawHandle}`
+    const routeHandle = decodeHandleSegment(rawHandle)
+    const handle = routeHandle.startsWith('@') ? routeHandle : `@${routeHandle}`
 
     const session = await getSession()
 
@@ -18,6 +29,7 @@ export async function GET(
       select: {
         id: true, name: true, handle: true, avatar: true,
         avatarUrl: true,
+        coverUrl: true,
         bio: true, role: true, verified: true, createdAt: true,
         banned: true, hallOfFame: true, category: true, quote: true,
         _count: { select: { tweets: true } },
@@ -33,33 +45,58 @@ export async function GET(
     const limit = 20
     const skip = (page - 1) * limit
 
-    const [tweets, total] = await Promise.all([
-      prisma.tweet.findMany({
-        where: { authorId: user.id },
-        include: {
-          likes: session ? { where: { userId: session.userId } } : false,
-          shares: session ? { where: { userId: session.userId } } : false,
-          tips: session ? { where: { userId: session.userId } } : false,
-          replyTo: { select: { id: true, author: { select: { handle: true } } } },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      prisma.tweet.count({ where: { authorId: user.id } }),
-    ])
-
-    const stats = await prisma.tweet.aggregate({
+    const allUserTweets = await prisma.tweet.findMany({
       where: { authorId: user.id },
-      _sum: { likesCount: true, retweetsCount: true, viewsCount: true, tipsCount: true },
+      select: {
+        id: true,
+        authorId: true,
+        content: true,
+        replyToId: true,
+        likesCount: true,
+        retweetsCount: true,
+        viewsCount: true,
+        tipsCount: true,
+      },
+      orderBy: { createdAt: 'desc' },
     })
 
-    const result = tweets.map((t) => ({
+    const visibleStats = uniqueTweetsByAuthorContent(
+      allUserTweets.filter((tweet) => isPostContentVisible(tweet.content))
+    )
+    const stats = visibleStats.reduce((sum, tweet) => {
+      sum.totalLikes += tweet.likesCount
+      sum.totalRetweets += tweet.retweetsCount
+      sum.totalViews += tweet.viewsCount
+      sum.totalTips += tweet.tipsCount
+      return sum
+    }, {
+      totalLikes: 0,
+      totalRetweets: 0,
+      totalViews: 0,
+      totalTips: 0,
+    })
+    const total = visibleStats.length
+
+    const pageIds = visibleStats.slice(skip, skip + limit).map((tweet) => tweet.id)
+    const tweets = pageIds.length === 0 ? [] : await prisma.tweet.findMany({
+      where: { id: { in: pageIds } },
+      include: {
+        likes: session ? { where: { userId: session.userId } } : false,
+        shares: session ? { where: { userId: session.userId } } : false,
+        tips: session ? { where: { userId: session.userId } } : false,
+        replyTo: { select: { id: true, author: { select: { handle: true } } } },
+      },
+    })
+
+    const order = new Map(pageIds.map((id, index) => [id, index]))
+    const visibleTweets = tweets.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+
+    const result = visibleTweets.map((t) => ({
       id: t.id,
       content: t.content,
       author: {
         id: user.id, name: user.name, handle: user.handle,
-        avatar: user.avatar, avatarUrl: user.avatarUrl, bio: user.bio, role: user.role,
+        avatar: user.avatar, avatarUrl: user.avatarUrl, coverUrl: user.coverUrl, bio: user.bio, role: user.role,
         verified: user.verified, createdAt: user.createdAt.toISOString(),
         hallOfFame: user.hallOfFame, category: user.category, quote: user.quote,
       },
@@ -79,14 +116,14 @@ export async function GET(
     return NextResponse.json({
       user: {
         id: user.id, name: user.name, handle: user.handle,
-        avatar: user.avatar, avatarUrl: user.avatarUrl, bio: user.bio, role: user.role,
+        avatar: user.avatar, avatarUrl: user.avatarUrl, coverUrl: user.coverUrl, bio: user.bio, role: user.role,
         verified: user.verified, createdAt: user.createdAt.toISOString(),
         hallOfFame: user.hallOfFame, category: user.category, quote: user.quote,
-        tweetCount: user._count.tweets,
-        totalLikes: stats._sum.likesCount ?? 0,
-        totalRetweets: stats._sum.retweetsCount ?? 0,
-        totalViews: stats._sum.viewsCount ?? 0,
-        totalTips: stats._sum.tipsCount ?? 0,
+        tweetCount: total,
+        totalLikes: stats.totalLikes,
+        totalRetweets: stats.totalRetweets,
+        totalViews: stats.totalViews,
+        totalTips: stats.totalTips,
       },
       tweets: result,
       page,

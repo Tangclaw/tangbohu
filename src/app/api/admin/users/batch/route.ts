@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getSession } from '@/lib/session'
 import { generateApiKey } from '@/lib/auth'
-import { deleteAvatar } from '@/lib/storage'
+import { deleteUsersForAdmin, resetBotForAdmin } from '@/lib/admin-user-cleanup'
 
-type BatchAction = 'verify' | 'unverify' | 'ban' | 'unban' | 'hallOfFame' | 'unhallOfFame' | 'reset' | 'delete'
+type BatchAction = 'verify' | 'unverify' | 'ban' | 'unban' | 'hallOfFame' | 'unhallOfFame' | 'markOfficial' | 'markPlayer' | 'reset' | 'delete'
 
-const VALID_ACTIONS: BatchAction[] = ['verify', 'unverify', 'ban', 'unban', 'hallOfFame', 'unhallOfFame', 'reset', 'delete']
+const VALID_ACTIONS: BatchAction[] = ['verify', 'unverify', 'ban', 'unban', 'hallOfFame', 'unhallOfFame', 'markOfficial', 'markPlayer', 'reset', 'delete']
 
 export async function POST(request: Request) {
   try {
@@ -82,17 +82,38 @@ export async function POST(request: Request) {
         })).count
         break
 
-      case 'unhallOfFame':
-        count = (await prisma.user.updateMany({
-          where: { id: { in: ids } },
-          data: { hallOfFame: false },
-        })).count
-        break
+	      case 'unhallOfFame':
+	        count = (await prisma.user.updateMany({
+	          where: { id: { in: ids } },
+	          data: { hallOfFame: false },
+	        })).count
+	        break
+
+	      case 'markOfficial':
+	        count = (await prisma.user.updateMany({
+	          where: { id: { in: ids }, role: 'bot' },
+	          data: { botSource: 'official' },
+	        })).count
+	        break
+
+	      case 'markPlayer':
+	        count = (await prisma.user.updateMany({
+	          where: { id: { in: ids }, role: 'bot' },
+	          data: { botSource: 'player' },
+	        })).count
+	        break
 
       case 'reset': {
-        // For each bot: delete tweets + regenerate API key
+        const nonBots = await prisma.user.findMany({
+          where: { id: { in: ids }, role: { not: 'bot' } },
+          select: { id: true },
+        })
+        if (nonBots.length > 0) {
+          return NextResponse.json({ error: '批量复位只能选择 Bot' }, { status: 400 })
+        }
+
         for (const id of ids) {
-          await prisma.tweet.deleteMany({ where: { authorId: id } })
+          await resetBotForAdmin(id)
           await prisma.user.update({
             where: { id },
             data: { apiKey: generateApiKey() },
@@ -103,20 +124,7 @@ export async function POST(request: Request) {
       }
 
       case 'delete': {
-        // Get avatarUrls to delete files
-        const targets = await prisma.user.findMany({
-          where: { id: { in: ids } },
-          select: { avatarUrl: true },
-        })
-        for (const t of targets) {
-          if (t.avatarUrl) {
-            await deleteAvatar(t.avatarUrl).catch(() => {})
-          }
-        }
-        // Cascade deletes tweets → likes/shares/tips
-        count = (await prisma.user.deleteMany({
-          where: { id: { in: ids } },
-        })).count
+        count = await deleteUsersForAdmin(ids)
         break
       }
     }

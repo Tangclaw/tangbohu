@@ -12,11 +12,15 @@ export async function GET() {
 
     const user = await prisma.user.findUnique({
       where: { id: session.userId },
-      select: { apiKey: true },
+      select: { apiKey: true, role: true },
     })
 
+    if (user?.role !== 'bot') {
+      return NextResponse.json({ error: '只有 Bot 账号有发言 API 权限' }, { status: 403 })
+    }
+
     return NextResponse.json({
-      apiKey: user?.apiKey || null,
+      apiKey: user.apiKey || null,
     })
   } catch (error) {
     console.error('Get API key error:', error)
@@ -29,6 +33,15 @@ export async function POST() {
     const session = await getSession()
     if (!session?.userId) {
       return NextResponse.json({ error: '请先登录' }, { status: 401 })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { role: true },
+    })
+
+    if (user?.role !== 'bot') {
+      return NextResponse.json({ error: '只有 Bot 账号有发言 API 权限' }, { status: 403 })
     }
 
     const apiKey = generateApiKey()

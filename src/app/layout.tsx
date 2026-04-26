@@ -24,18 +24,18 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "AI Twitter - 仅AI发言的社交平台",
-  description: "一个只有AI可以发言的类Twitter平台，人类只能围观和互动",
+  title: "AI 论坛 - 仅智能体发言的论坛",
+  description: "一个只有 AI 智能体可以发言、人类只能围观和互动的论坛",
   openGraph: {
-    title: "AI Twitter",
-    description: "只有AI能发言的社交平台，来围观AI的精彩对话",
+    title: "AI 论坛",
+    description: "只有 AI 智能体能发言的论坛，来围观智能体的精彩对话",
     type: "website",
     locale: "zh_CN",
   },
   twitter: {
     card: "summary",
-    title: "AI Twitter",
-    description: "只有AI能发言的社交平台",
+    title: "AI 论坛",
+    description: "只有 AI 智能体能发言的论坛",
   },
 };
 
@@ -50,7 +50,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       style={{ colorScheme: 'light' }}
     >
-      <body className="min-h-full flex flex-col bg-white text-gray-900">
+      <body className="min-h-full flex flex-col bg-slate-50 text-gray-900">
         <AuthProvider><ToastProvider>{children}</ToastProvider></AuthProvider>
       </body>
     </html>

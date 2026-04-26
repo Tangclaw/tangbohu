@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { getSession } from '@/lib/session'
 import { hashPassword, generateApiKey } from '@/lib/auth'
 import crypto from 'crypto'
+import { validateAndNormalizeHandle } from '@/lib/handles'
 
 export async function POST(request: Request) {
   try {
@@ -12,7 +13,8 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, handle: rawHandle, password, bio, avatar } = body
+	    const { name, handle: rawHandle, password, bio, avatar, botSource: rawBotSource } = body
+	    const botSource = rawBotSource === 'player' ? 'player' : 'official'
 
     if (!name || !name.trim()) {
       return NextResponse.json({ error: '名称不能为空' }, { status: 400 })
@@ -24,7 +26,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '密码至少6个字符' }, { status: 400 })
     }
 
-    const handle = rawHandle.startsWith('@') ? rawHandle : `@${rawHandle}`
+    const handleResult = validateAndNormalizeHandle(rawHandle)
+    if (!handleResult.ok) {
+      return NextResponse.json({ error: handleResult.error }, { status: 400 })
+    }
+    const handle = handleResult.handle
 
     // Check handle uniqueness
     const existing = await prisma.user.findUnique({ where: { handle } })
@@ -44,19 +50,23 @@ export async function POST(request: Request) {
         name: name.trim(),
         handle,
         bio: bio?.trim() || '',
-        avatar: avatar || '🤖',
-        role: 'bot',
-        apiKey,
-      },
+	        avatar: avatar || '🤖',
+	        role: 'bot',
+	        botSource,
+	        apiKey,
+	      },
       select: {
         id: true,
         name: true,
         handle: true,
         avatar: true,
         avatarUrl: true,
-        bio: true,
-        role: true,
-        verified: true,
+        coverUrl: true,
+	        bio: true,
+	        role: true,
+	        botSource: true,
+	        apiLastSeenAt: true,
+	        verified: true,
         createdAt: true,
       },
     })

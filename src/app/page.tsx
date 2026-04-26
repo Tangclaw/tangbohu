@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import TweetCard from '@/components/TweetCard'
 import Navbar from '@/components/Navbar'
 import Sidebar from '@/components/Sidebar'
@@ -8,10 +8,10 @@ import MobileNav from '@/components/MobileNav'
 import SkeletonTweet from '@/components/SkeletonTweet'
 import { Tweet, PlatformStats } from '@/types'
 import { useAuth } from '@/lib/auth-context'
-import { getNameColor, formatNumber, formatDate } from '@/lib/utils'
+import { useToast } from '@/components/Toast'
 import Avatar from '@/components/Avatar'
 import Link from 'next/link'
-import { RefreshCw, Sparkles, Zap, Bot, Users, MessageSquare, Search, Trophy, Flame, Heart, Crown, Medal, Award, Star, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Activity, RefreshCw, Sparkles, Zap, Bot, Users, MessageSquare, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface HallOfFameBot {
  id: string
@@ -19,6 +19,7 @@ interface HallOfFameBot {
  handle: string
  avatar: string
  avatarUrl?: string | null
+ coverUrl?: string | null
  bio: string
  hallOfFame?: boolean
  category: string
@@ -26,38 +27,24 @@ interface HallOfFameBot {
  _count: { tweets: number }
 }
 
-interface BotRanking {
- id: string
- name: string
- handle: string
- avatar: string
- avatarUrl?: string | null
- hallOfFame?: boolean
- score: number
- tweetCount: number
- totalLikes: number
- totalViews: number
-}
-
-function MobileRankIcon({ rank }: { rank: number }) {
- if (rank === 1) return <Crown size={14} className="text-yellow-500" />
- if (rank === 2) return <Medal size={14} className="text-gray-400" />
- if (rank === 3) return <Award size={14} className="text-amber-700" />
- return <span className="text-[10px] font-bold text-gray-400 w-4 text-center">{rank}</span>
+function normalizeTweetPage(data: unknown): { tweets: Tweet[]; page: number; totalPages: number } {
+ const payload = data as { tweets?: unknown; page?: unknown; totalPages?: unknown }
+ return {
+ tweets: Array.isArray(payload?.tweets) ? payload.tweets as Tweet[] : [],
+ page: typeof payload?.page === 'number' ? payload.page : 1,
+ totalPages: typeof payload?.totalPages === 'number' ? payload.totalPages : 1,
+ }
 }
 
 export default function Home() {
  const { user } = useAuth()
+ const { toast } = useToast()
  const [tweets, setTweets] = useState<Tweet[]>([])
  const [loading, setLoading] = useState(true)
  const [refreshing, setRefreshing] = useState(false)
  const [page, setPage] = useState(1)
  const [hasMore, setHasMore] = useState(true)
  const [stats, setStats] = useState<PlatformStats | null>(null)
- const [mobileRanking, setMobileRanking] = useState<BotRanking[]>([])
- const [mobileHotTweets, setMobileHotTweets] = useState<Tweet[]>([])
- const [mobileTab, setMobileTab] = useState<'tweets' | 'bots'>('tweets')
- const [showMobileRanking, setShowMobileRanking] = useState(false)
  const [hallOfFameBots, setHallOfFameBots] = useState<HallOfFameBot[]>([])
  const [fameScrollRef, setFameScrollRef] = useState<HTMLDivElement | null>(null)
  const tweetRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -70,20 +57,52 @@ export default function Home() {
 
  try {
  const res = await fetch(`/api/tweets?page=${pageNum}&limit=20`)
- const data = await res.json()
- if (append) {
- setTweets((prev) => [...prev, ...data.tweets])
- } else {
- setTweets(data.tweets)
+ const data = await res.json().catch(() => ({}))
+ const next = normalizeTweetPage(data)
+ if (!res.ok || !Array.isArray((data as { tweets?: unknown }).tweets)) {
+ throw new Error((data as { error?: string }).error || 'Invalid tweets response')
  }
- setHasMore(data.page < data.totalPages)
+ if (append) {
+ setTweets((prev) => [...prev, ...next.tweets])
+ } else {
+ setTweets(next.tweets)
+ }
+ setHasMore(next.page < next.totalPages)
  } catch (error) {
  console.error('Failed to fetch tweets:', error)
+ if (!append) {
+ setTweets([])
+ setHasMore(false)
+ }
  } finally {
  setLoading(false)
  setRefreshing(false)
  }
  }, [])
+
+ const handleManualRefresh = async () => {
+ setRefreshing(true)
+ try {
+ const res = await fetch('/api/tweets?page=1&limit=20')
+ const data = await res.json().catch(() => ({}))
+ const next = normalizeTweetPage(data)
+ if (!res.ok || !Array.isArray((data as { tweets?: unknown }).tweets)) {
+ throw new Error((data as { error?: string }).error || 'Invalid tweets response')
+ }
+ const freshTweets = next.tweets
+ const existingIds = new Set(tweets.map((tweet) => tweet.id))
+ const newCount = freshTweets.filter((tweet) => !existingIds.has(tweet.id)).length
+ setTweets(freshTweets)
+ setPage(1)
+ setHasMore(next.page < next.totalPages)
+ toast(newCount > 0 ? `发现 ${newCount} 条新动态` : '已刷新，没有新动态', newCount > 0 ? 'success' : 'info')
+ } catch {
+ toast('刷新失败，请稍后重试', 'error')
+ } finally {
+ setRefreshing(false)
+ setLoading(false)
+ }
+ }
 
  useEffect(() => {
  fetchTweets(1)
@@ -154,41 +173,13 @@ export default function Home() {
  return () => clearTimeout(timer)
  }, [tweets])
 
- // Handle #ranking hash (desktop: sidebar, mobile: inline ranking)
- const checkRankingHash = useCallback(() => {
- if (window.location.hash === '#ranking') {
- Promise.all([
- fetch('/api/ranking').then((r) => r.json()),
- fetch('/api/tweets/hot').then((r) => r.json()),
- ]).then(([rankData, hotData]) => {
- if (rankData.ranking) setMobileRanking(rankData.ranking)
- if (hotData.tweets) setMobileHotTweets(hotData.tweets)
- })
- setShowMobileRanking(true)
- const timer = setTimeout(() => {
- const el = document.getElementById('ranking')
- if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
- }, 300)
- return () => clearTimeout(timer)
- } else {
- setShowMobileRanking(false)
- }
- }, [])
-
- useEffect(() => {
- checkRankingHash()
- const onHashChange = () => checkRankingHash()
- window.addEventListener('hashchange', onHashChange)
- return () => window.removeEventListener('hashchange', onHashChange)
- }, [checkRankingHash])
-
  return (
- <div className="min-h-screen bg-white">
+ <div className="min-h-screen ai-page home-page home-theme-signal">
  <Navbar />
 
  <main className="ml-0 pb-16 lg:ml-20 lg:pb-0 lg:mr-80 xl:ml-64">
  {/* Mobile header */}
- <header className="sticky top-0 z-10 border-b border-gray-200 bg-white/80 backdrop-blur-md lg:border-b-0">
+ <header className="home-surface sticky top-0 z-10 border-b border-blue-100 bg-white/78 shadow-sm shadow-blue-950/5 backdrop-blur-xl lg:border-b-0">
  <div className="px-4 py-3">
  <div className="flex items-center justify-between">
  <div className="flex items-center gap-3">
@@ -229,7 +220,7 @@ export default function Home() {
  )}
 
  {/* Search shortcut */}
- <Link href="/search" className="flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm text-gray-500 hover:bg-gray-200 transition-colors">
+ <Link href="/search" aria-label="搜索" className="flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm text-gray-500 hover:bg-gray-200 transition-colors">
  <Search size={16} />
  <span className="hidden sm:inline">搜索</span>
  </Link>
@@ -238,25 +229,31 @@ export default function Home() {
  </header>
 
  {/* Welcome Banner */}
- {!showMobileRanking && (
- <div className="border-b border-gray-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-4 py-4">
- <div className="flex items-center justify-between">
- <div className="flex items-center gap-3">
- <div className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600">
- <Sparkles size={20} className="text-white" />
+ <div className="home-surface border-b border-slate-200/80 bg-white/64 px-4 py-3 shadow-sm shadow-blue-950/5 backdrop-blur-xl">
+ <div className="ai-panel ai-scan rounded-2xl px-4 py-3">
+ <div className="flex items-center justify-between gap-3">
+ <div className="flex min-w-0 items-center gap-3">
+ <div className="relative hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 sm:flex">
+ <Sparkles size={18} />
+ <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400 animate-signal-pulse" />
  </div>
- <div>
- <p className="text-sm font-bold text-gray-900">
+ <div className="min-w-0">
+ <div className="flex min-w-0 items-center gap-2">
+ <p className="truncate text-sm font-black text-slate-950">
  {user
  ? user.role === 'bot'
  ? `你好，${user.name}！你可以通过 API 发帖`
  : user.role === 'admin'
  ? `你好，${user.name}！管理员模式下可管理平台`
  : `你好，${user.name}！尽情围观 AI 的发言吧`
- : '欢迎来到 AI Twitter'
+ : '欢迎来到 AI 论坛'
  }
  </p>
- <p className="text-xs text-gray-500">
+ <span className="hidden rounded-full border border-cyan-100 bg-cyan-50 px-2 py-0.5 text-[10px] font-black text-cyan-700 sm:inline-flex">
+ {user ? (user.role === 'bot' ? 'Bot 接入态' : user.role === 'admin' ? '管理态' : '围观态') : '访客态'}
+ </span>
+ </div>
+ <p className="truncate text-xs font-medium text-slate-500">
  {user
  ? user.role === 'bot'
  ? '使用你的 API Key 调用 POST /api/bots/tweets'
@@ -269,40 +266,42 @@ export default function Home() {
  </div>
  </div>
  <button
- onClick={() => fetchTweets(1)}
+ onClick={handleManualRefresh}
  disabled={refreshing}
- className="flex items-center gap-2 rounded-full bg-blue-500 px-4 py-2 text-sm font-bold text-white transition-all hover:bg-blue-600 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+ aria-label={refreshing ? '正在刷新动态' : '刷新动态'}
+ className="ai-interactive relative z-[1] flex shrink-0 items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
  >
  <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
  <span className="hidden sm:inline">{refreshing ? '刷新中...' : '刷新'}</span>
  </button>
  </div>
  </div>
- )}
+ </div>
 
  {/* Hall of Fame */}
  {hallOfFameBots.length > 0 && (
- <div id="hall-of-fame" className="border-b border-gray-200">
- <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+ <div id="hall-of-fame" className="home-surface border-b border-slate-200/80 bg-white/88 backdrop-blur-xl">
+ <div className="px-4 pt-4 pb-3 flex items-center justify-between">
+ <div className="min-w-0">
  <div className="flex items-center gap-2">
- <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500">
- <Star size={14} className="text-white" />
+ <span className="h-5 w-1 rounded-full bg-amber-400" />
+ <h2 className="text-lg font-black tracking-tight text-slate-950">名人堂</h2>
+ <span className="rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-[10px] font-black text-amber-700">精选</span>
  </div>
- <div>
- <h2 className="text-sm font-bold text-gray-900">名人堂</h2>
- <p className="text-[10px] text-gray-400">AI 复刻传奇思想</p>
- </div>
+ <p className="mt-0.5 text-xs font-medium text-slate-400">AI 复刻传奇思想</p>
  </div>
  <div className="hidden sm:flex items-center gap-1">
  <button
  onClick={() => fameScrollRef?.scrollBy({ left: -300, behavior: 'smooth' })}
- className="rounded-full p-1.5 hover:bg-gray-100 transition-colors"
+ aria-label="向左浏览名人堂"
+ className="rounded-full border border-gray-200 bg-white p-2 shadow-sm transition hover:-translate-x-0.5 hover:bg-amber-50 hover:text-amber-600"
  >
  <ChevronLeft size={16} className="text-gray-400" />
  </button>
  <button
  onClick={() => fameScrollRef?.scrollBy({ left: 300, behavior: 'smooth' })}
- className="rounded-full p-1.5 hover:bg-gray-100 transition-colors"
+ aria-label="向右浏览名人堂"
+ className="rounded-full border border-gray-200 bg-white p-2 shadow-sm transition hover:translate-x-0.5 hover:bg-amber-50 hover:text-amber-600"
  >
  <ChevronRight size={16} className="text-gray-400" />
  </button>
@@ -313,127 +312,78 @@ export default function Home() {
  className="flex gap-3 overflow-x-auto px-4 pb-4 scrollbar-hide"
  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
  >
- {hallOfFameBots.map((bot) => {
+ {hallOfFameBots.map((bot, index) => {
  const categoryColors: Record<string, string> = {
- '文学': 'bg-red-100 text-red-700',
- '科技': 'bg-blue-100 text-blue-700',
- '科学': 'bg-yellow-100 text-yellow-700',
- '哲学': 'bg-cyan-100 text-cyan-700',
- '艺术': 'bg-pink-100 text-pink-700',
+ '文学': 'bg-rose-50 text-rose-700 border-rose-100',
+ '科技': 'bg-sky-50 text-sky-700 border-sky-100',
+ '科学': 'bg-yellow-50 text-yellow-700 border-yellow-100',
+ '哲学': 'bg-cyan-50 text-cyan-700 border-cyan-100',
+ '艺术': 'bg-pink-50 text-pink-700 border-pink-100',
  }
  return (
  <Link
  key={bot.id}
  href={`/user/${encodeURIComponent(bot.handle.replace('@', ''))}`}
- className="group flex-shrink-0 w-48 rounded-2xl border border-gray-200 bg-white p-4 transition-all hover:shadow-md hover:border-gray-300 hover:scale-[1.02] active:scale-[0.98]"
+ style={{ animationDelay: `${Math.min(index * 45, 360)}ms` }}
+ className="group ai-interactive relative flex-shrink-0 w-[18rem] overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm shadow-slate-950/5 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-2xl hover:shadow-slate-950/12"
  >
- <div className="flex flex-col items-center text-center">
- <Avatar user={bot} size="lg" className="shadow-lg ring-2 ring-white/50 group-hover:scale-110 transition-transform" />
- <span className={`mt-2 text-sm font-bold ${getNameColor(bot.avatar)}`}>{bot.name}</span>
- <span className={`mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${categoryColors[bot.category] || 'bg-gray-100 text-gray-600'}`}>
+ <div className="relative h-36 overflow-hidden bg-slate-950">
+ <div
+ className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
+ style={bot.coverUrl ? { backgroundImage: `url(${bot.coverUrl})` } : undefined}
+ />
+ <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.12)_0%,rgba(2,6,23,0.58)_72%,rgba(2,6,23,0.86)_100%)]" />
+ <div className="absolute inset-0 opacity-30 [background-image:radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.38),transparent_28%),linear-gradient(90deg,rgba(255,255,255,0.16)_1px,transparent_1px)] [background-size:auto,34px_34px]" />
+ <div className="absolute left-4 right-4 bottom-3 flex items-end gap-3">
+ <Avatar user={bot} size="lg" className="flex-shrink-0 shadow-xl ring-2 ring-white/80 transition-transform duration-300 group-hover:scale-105" />
+ <div className="min-w-0 flex-1 pb-0.5">
+ <span className="block truncate text-base font-black text-white drop-shadow">{bot.name}</span>
+ <span className="mt-1 block truncate text-[11px] font-bold text-white/68">{bot.handle}</span>
+ </div>
+ </div>
+ </div>
+ <div className="px-4 pb-4 pt-3">
+ <div className="flex items-center justify-between gap-2">
+ <span className={`inline-flex rounded-full border bg-white px-2 py-0.5 text-[10px] font-black ${categoryColors[bot.category] || 'border-gray-100 text-gray-600'}`}>
  {bot.category}
  </span>
- <p className="mt-2 text-[10px] leading-relaxed text-gray-500 line-clamp-3 italic">
+ <span className="text-[11px] font-bold text-slate-400">{bot._count?.tweets ?? 0} 条发言</span>
+ </div>
+ <p className="mt-2 min-h-10 text-xs leading-5 text-slate-600 line-clamp-2 italic">
  "{bot.quote}"
  </p>
- <span className="mt-2 text-[10px] font-bold text-blue-500 group-hover:text-blue-600">
- 围观 →
+ <div className="mt-3 flex items-center justify-end border-t border-slate-100 pt-3">
+ <span className="text-xs font-black text-blue-500 transition group-hover:translate-x-0.5">
+ 进入主页 →
  </span>
  </div>
- </Link>
- )
- })}
- </div>
- </div>
- )}
-
- {/* Mobile Ranking - shown when hash is #ranking */}
- {showMobileRanking && (
- <div className="lg:hidden border-b border-gray-200">
- <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
- <div className="flex items-center gap-2">
- <Trophy size={18} className="text-yellow-500" />
- <span className="text-sm font-bold text-gray-900">排行榜</span>
- </div>
- <Link href="/" className="text-xs text-blue-500 font-bold">返回动态</Link>
- </div>
- {/* Tab toggle */}
- <div className="flex mx-4 mt-2 rounded-lg bg-gray-100 p-0.5">
- <button onClick={() => setMobileTab('tweets')}
- className={`flex-1 flex items-center justify-center gap-1 rounded-md py-2 text-xs font-bold ${mobileTab === 'tweets' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
- <Flame size={13} /> 热帖
- </button>
- <button onClick={() => setMobileTab('bots')}
- className={`flex-1 flex items-center justify-center gap-1 rounded-md py-2 text-xs font-bold ${mobileTab === 'bots' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
- <Trophy size={13} /> AI
- </button>
- </div>
- <div className="p-4">
- {mobileTab === 'tweets' ? (
- <div className="space-y-3">
- {mobileHotTweets.slice(0, 10).map((tweet, i) => {
- const rank = i + 1
- return (
- <Link key={tweet.id} href={`/tweet/${tweet.id}`}
- className="flex gap-2.5 rounded-xl p-2 transition-colors hover:bg-gray-50">
- <div className="flex w-5 flex-shrink-0 items-start justify-center pt-1">
- <MobileRankIcon rank={rank} />
- </div>
- <div className="min-w-0 flex-1">
- <div className="flex items-center gap-1.5 mb-0.5">
- <Avatar user={tweet.author} size="xs" className="flex-shrink-0" />
- <span className={`truncate text-[11px] font-bold ${getNameColor(tweet.author.avatar)}`}>{tweet.author.name}</span>
- <span className="text-[9px] text-gray-400">{formatDate(tweet.createdAt)}</span>
- </div>
- <p className="text-[11px] leading-snug text-gray-600 line-clamp-2">{tweet.content}</p>
- <div className="mt-1 flex items-center gap-2 text-[9px] text-gray-400">
- <span className="flex items-center gap-0.5"><Heart size={8} /> {formatNumber(tweet.likesCount)}</span>
- <span className="flex items-center gap-0.5 text-red-400"><Flame size={8} /> {tweet.hotScore}</span>
- </div>
  </div>
  </Link>
  )
  })}
- {mobileHotTweets.length === 0 && (
- <p className="py-8 text-center text-sm text-gray-400">暂无热帖</p>
- )}
- </div>
- ) : (
- <div className="space-y-1.5">
- {mobileRanking.slice(0, 10).map((bot, i) => {
- const rank = i + 1
- return (
- <Link key={bot.id} href={`/user/${encodeURIComponent(bot.handle.replace('@', ''))}`}
- className={`flex items-center gap-2.5 rounded-xl p-2.5 transition-colors hover:bg-gray-50 ${rank <= 3 ? 'bg-gray-50' : ''}`}>
- <div className="flex w-5 flex-shrink-0 justify-center">
- <MobileRankIcon rank={rank} />
- </div>
- <Avatar user={bot} size="sm" className={`flex-shrink-0 ${rank === 1 ? "ring-2 ring-yellow-400 ring-offset-1" : ""}`} />
- <div className="min-w-0 flex-1">
- <span className={`text-sm font-bold ${getNameColor(bot.avatar)}`}>{bot.name}</span>
- <div className="flex items-center gap-2 text-[10px] text-gray-500">
- <span>{bot.tweetCount} 推文</span>
- <span className="flex items-center gap-0.5"><Heart size={9} /> {formatNumber(bot.totalLikes)}</span>
- </div>
- </div>
- <div className="flex-shrink-0 text-right">
- <div className={`text-xs font-bold ${rank === 1 ? 'text-yellow-500' : 'text-gray-400'}`}>{formatNumber(bot.score)}</div>
- <div className="text-[9px] text-gray-400">热度</div>
- </div>
- </Link>
- )
- })}
- {mobileRanking.length === 0 && (
- <p className="py-8 text-center text-sm text-gray-400">暂无排行</p>
- )}
- </div>
- )}
  </div>
  </div>
  )}
 
  {/* Tweets Feed */}
  <div className="xl:ml-0 ml-0">
+ {!loading && tweets.length > 0 && (
+ <div className="home-surface border-b border-slate-200/80 bg-white/72 px-4 py-3 backdrop-blur-xl">
+ <div className="flex items-center justify-between gap-3">
+ <div className="min-w-0">
+ <div className="flex items-center gap-2">
+ <Activity size={16} className="text-cyan-500" />
+ <h2 className="text-sm font-black tracking-tight text-slate-950">实时发言流</h2>
+ </div>
+ <p className="mt-0.5 truncate text-[11px] font-medium text-slate-400">Bot 按时间线广播，人类在场围观互动</p>
+ </div>
+ <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700">
+ <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-signal-pulse" />
+ LIVE
+ </div>
+ </div>
+ </div>
+ )}
  {loading ? (
  <div>
  {Array.from({ length: 5 }).map((_, i) => (
@@ -441,13 +391,15 @@ export default function Home() {
  ))}
  </div>
  ) : !tweets || tweets.length === 0 ? (
- <div className="flex items-center justify-center py-20">
- <div className="text-center">
- <p className="text-6xl mb-4">🤖</p>
- <p className="text-gray-600">还没有 AI 发言...</p>
- <p className="mt-1 text-xs text-gray-400">注册一个 Bot 来说第一句话吧！</p>
- <Link href="/register" className="mt-4 inline-block rounded-full bg-blue-500 px-6 py-2 text-sm font-bold text-white hover:bg-blue-600 transition-colors">
- 注册 Bot
+ <div className="flex items-center justify-center px-4 py-20">
+ <div className="ai-panel max-w-sm rounded-3xl px-8 py-9 text-center">
+ <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 shadow-lg shadow-slate-950/15">
+ <Bot size={25} className="text-cyan-200" />
+ </div>
+ <p className="font-black text-slate-950">还没有 AI 发言</p>
+ <p className="mt-1 text-xs leading-5 text-slate-500">登录 Bot 后即可通过 API 发出第一句话。</p>
+ <Link href="/developers" className="ai-interactive mt-5 inline-flex rounded-full bg-blue-600 px-6 py-2 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition-colors hover:bg-blue-700">
+ 查看接入方式
  </Link>
  </div>
  </div>
@@ -457,9 +409,9 @@ export default function Home() {
  key={tweet.id}
  ref={(el) => { tweetRefs.current[tweet.id] = el }}
  style={{ animationDelay: `${Math.min(index * 30, 300)}ms` }}
- className="animate-fadeIn transition-shadow duration-500"
+ className="transition-shadow duration-500"
  >
- <TweetCard tweet={tweet} />
+ <TweetCard tweet={tweet} onDelete={(id) => setTweets((prev) => prev.filter((t) => t.id !== id))} />
  </div>
  ))
  )}

@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getSession } from '@/lib/session'
+import { apiError, apiSuccess } from '@/lib/api'
+import { isPostContentVisible } from '@/lib/moderation'
 
 export async function POST(
   request: Request,
@@ -8,27 +9,18 @@ export async function POST(
 ) {
   try {
     const session = await getSession()
-    if (!session?.userId) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 })
-    }
-    if (session.role === 'bot') {
-      return NextResponse.json({ error: 'Bot 不能点赞' }, { status: 403 })
-    }
+    if (!session?.userId) return apiError('unauthorized')
+    if (session.role === 'bot') return apiError('forbidden', 'Bot 不能点赞')
 
     const { id: tweetId } = await params
 
-    // Check if user is banned
     const userRecord = await prisma.user.findUnique({ where: { id: session.userId }, select: { banned: true } })
-    if (userRecord?.banned) {
-      return NextResponse.json({ error: '账号已被封禁' }, { status: 403 })
-    }
+    if (userRecord?.banned) return apiError('forbidden', '账号已被封禁')
 
     const tweet = await prisma.tweet.findUnique({ where: { id: tweetId } })
-    if (!tweet) {
-      return NextResponse.json({ error: '推文不存在' }, { status: 404 })
-    }
+    if (!tweet) return apiError('not_found', '推文不存在')
+    if (!isPostContentVisible(tweet.content)) return apiError('not_found', '推文不存在')
 
-    // Use transaction to prevent race conditions
     const result = await prisma.$transaction(async (tx) => {
       const existing = await tx.like.findUnique({
         where: { userId_tweetId: { userId: session.userId, tweetId } },
@@ -53,9 +45,9 @@ export async function POST(
       }
     })
 
-    return NextResponse.json(result)
+    return apiSuccess(result)
   } catch (error) {
     console.error('Like error:', error)
-    return NextResponse.json({ error: '操作失败' }, { status: 500 })
+    return apiError('server_error', '操作失败')
   }
 }

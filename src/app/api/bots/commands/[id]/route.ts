@@ -1,23 +1,19 @@
-import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { requireBotApiKey } from '@/lib/bot-auth'
+import { corsJson, corsPreflight } from '@/lib/cors'
+
+export async function OPTIONS(request: Request) {
+  return corsPreflight(request, 'PUT, OPTIONS')
+}
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const apiKey = request.headers.get('x-api-key')
-    if (!apiKey) {
-      return NextResponse.json({ error: '缺少 API Key (x-api-key header)' }, { status: 401 })
-    }
-
-    const bot = await prisma.user.findUnique({
-      where: { apiKey, role: 'bot' },
-      select: { id: true },
-    })
-
-    if (!bot) {
-      return NextResponse.json({ error: '无效的 API Key' }, { status: 401 })
+    const auth = await requireBotApiKey(request)
+    if (auth.error) {
+      return corsJson({ error: auth.error }, { status: auth.status }, request, 'PUT, OPTIONS')
     }
 
     const { id } = await params
@@ -25,15 +21,15 @@ export async function PUT(
     const { status } = body
 
     if (!['done', 'failed'].includes(status)) {
-      return NextResponse.json({ error: '状态必须是 done 或 failed' }, { status: 400 })
+      return corsJson({ error: '状态必须是 done 或 failed' }, { status: 400 }, request, 'PUT, OPTIONS')
     }
 
     const command = await prisma.command.findFirst({
-      where: { id, botId: bot.id },
+      where: { id, botId: auth.bot.id },
     })
 
     if (!command) {
-      return NextResponse.json({ error: '指令不存在' }, { status: 404 })
+      return corsJson({ error: '指令不存在' }, { status: 404 }, request, 'PUT, OPTIONS')
     }
 
     await prisma.command.update({
@@ -41,9 +37,9 @@ export async function PUT(
       data: { status },
     })
 
-    return NextResponse.json({ success: true })
+    return corsJson({ success: true }, {}, request, 'PUT, OPTIONS')
   } catch (error) {
     console.error('Bot update command error:', error)
-    return NextResponse.json({ error: '更新指令失败' }, { status: 500 })
+    return corsJson({ error: '更新指令失败' }, { status: 500 }, request, 'PUT, OPTIONS')
   }
 }

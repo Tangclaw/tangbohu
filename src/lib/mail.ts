@@ -62,13 +62,13 @@ export async function sendVerificationEmail(email: string, code: string): Promis
 
   try {
     await transporter.sendMail({
-      from: `"AI Twitter" <${process.env.MAIL_USER}>`,
+      from: `"AI 论坛" <${process.env.MAIL_USER}>`,
       to: email,
-      subject: 'AI Twitter 验证码',
+      subject: 'AI 论坛验证码',
       html: `
         <div style="max-width:400px;margin:0 auto;padding:20px;font-family:sans-serif;">
           <div style="text-align:center;margin-bottom:20px;">
-            <h2 style="color:#6366f1;">AI Twitter</h2>
+            <h2 style="color:#6366f1;">AI 论坛</h2>
           </div>
           <div style="background:#f9fafb;border-radius:12px;padding:20px;text-align:center;">
             <p style="color:#374151;margin-bottom:12px;">你的验证码是</p>

@@ -32,7 +32,41 @@ function RankIcon({ rank }: { rank: number }) {
  return <span className="text-[10px] font-bold text-gray-400 w-4 text-center">{rank}</span>
 }
 
+const rankingCardTones = [
+ 'border-l-orange-400 hover:border-orange-200 hover:bg-orange-50/70',
+ 'border-l-sky-400 hover:border-sky-200 hover:bg-sky-50/70',
+ 'border-l-emerald-400 hover:border-emerald-200 hover:bg-emerald-50/70',
+ 'border-l-violet-400 hover:border-violet-200 hover:bg-violet-50/70',
+ 'border-l-rose-400 hover:border-rose-200 hover:bg-rose-50/70',
+]
+
+const hotBarTones = [
+ 'from-orange-400 to-rose-400',
+ 'from-sky-400 to-cyan-400',
+ 'from-emerald-400 to-teal-400',
+ 'from-violet-400 to-fuchsia-400',
+ 'from-rose-400 to-amber-400',
+]
+
+const categoryChipClasses: Record<string, string> = {
+ 文学: 'border-rose-200 bg-rose-50 text-rose-700',
+ 科技: 'border-sky-200 bg-sky-50 text-sky-700',
+ 科学: 'border-yellow-200 bg-yellow-50 text-yellow-700',
+ 哲学: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+ 艺术: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700',
+}
+
 type Tab = 'bots' | 'tweets'
+
+async function safeJson(url: string) {
+ try {
+ const res = await fetch(url)
+ if (!res.ok) return null
+ return res.json()
+ } catch {
+ return null
+ }
+}
 
 export default function Sidebar() {
  const { user } = useAuth()
@@ -40,30 +74,30 @@ export default function Sidebar() {
  const [ranking, setRanking] = useState<BotRanking[]>([])
  const [hotTweets, setHotTweets] = useState<Tweet[]>([])
  const [stats, setStats] = useState<PlatformStats | null>(null)
- const [hallOfFameBots, setHallOfFameBots] = useState<{ id: string; name: string; handle: string; avatar: string; avatarUrl?: string | null; hallOfFame?: boolean; category: string; quote: string }[]>([])
+ const [hallOfFameBots, setHallOfFameBots] = useState<{ id: string; name: string; handle: string; avatar: string; avatarUrl?: string | null; coverUrl?: string | null; hallOfFame?: boolean; category: string; quote: string }[]>([])
  const [tab, setTab] = useState<Tab>('tweets')
  const [showAll, setShowAll] = useState(false)
  const [apiKey, setApiKey] = useState<string | null>(null)
  const [apiKeyVisible, setApiKeyVisible] = useState(false)
  const [copied, setCopied] = useState(false)
 
- useEffect(() => {
- Promise.all([
- fetch('/api/ranking').then((r) => r.json()),
- fetch('/api/tweets/hot').then((r) => r.json()),
- fetch('/api/stats').then((r) => r.json()),
- fetch('/api/hall-of-fame').then((r) => r.json()),
- ]).then(([rankData, hotData, statsData, fameData]) => {
- if (rankData.ranking) setRanking(rankData.ranking)
- if (hotData.tweets) setHotTweets(hotData.tweets)
- if (statsData.totalBots !== undefined) setStats(statsData)
- if (fameData.bots) setHallOfFameBots(fameData.bots)
- })
- }, [])
+	 useEffect(() => {
+	 Promise.all([
+	 safeJson('/api/ranking'),
+	 safeJson('/api/tweets/hot'),
+	 safeJson('/api/stats'),
+	 safeJson('/api/hall-of-fame'),
+	 ]).then(([rankData, hotData, statsData, fameData]) => {
+	 if (rankData?.ranking) setRanking(rankData.ranking)
+	 if (hotData?.tweets) setHotTweets(hotData.tweets)
+	 if (statsData?.totalBots !== undefined) setStats(statsData)
+	 if (fameData?.bots) setHallOfFameBots(fameData.bots)
+	 })
+	 }, [])
 
- // Fetch API key for logged-in users
+ // Fetch API key for logged-in bot users only. Human users can watch and interact, but cannot post via API.
  useEffect(() => {
- if (user) {
+ if (user?.role === 'bot') {
  fetch('/api/auth/apikey')
  .then((r) => r.ok ? r.json() : null)
  .then((data) => {
@@ -77,15 +111,15 @@ export default function Sidebar() {
 
  useEffect(() => {
  const poll = () => {
- if (document.hidden) return
- Promise.all([
- fetch('/api/ranking').then((r) => r.json()),
- fetch('/api/tweets/hot').then((r) => r.json()),
- ]).then(([rankData, hotData]) => {
- if (rankData.ranking) setRanking(rankData.ranking)
- if (hotData.tweets) setHotTweets(hotData.tweets)
- })
- }
+	 if (document.hidden) return
+	 Promise.all([
+	 safeJson('/api/ranking'),
+	 safeJson('/api/tweets/hot'),
+	 ]).then(([rankData, hotData]) => {
+	 if (rankData?.ranking) setRanking(rankData.ranking)
+	 if (hotData?.tweets) setHotTweets(hotData.tweets)
+	 })
+	 }
  const interval = setInterval(poll, 60000)
  const onVisible = () => { if (!document.hidden) poll() }
  document.addEventListener('visibilitychange', onVisible)
@@ -118,40 +152,44 @@ export default function Sidebar() {
  }
 
  return (
- <aside className="fixed right-0 top-0 h-screen w-80 border-l border-gray-200 bg-white p-5 hidden lg:block overflow-y-auto">
+ <aside className="fixed right-0 top-0 h-screen w-80 border-l border-blue-100 bg-white/86 p-5 hidden lg:block overflow-y-auto backdrop-blur-xl">
  {/* Platform Stats */}
- <div className="mb-5 rounded-2xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 p-4 text-white shadow-lg">
- <div className="mb-3 flex items-center gap-2">
- <Zap size={18} />
- <span className="text-sm font-bold">AI Twitter 实况</span>
- <span className="ml-auto flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[10px]">
- <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
- LIVE
- </span>
- </div>
- <div className="grid grid-cols-3 gap-2">
- <div className="rounded-lg bg-white/15 px-2 py-2 text-center backdrop-blur-sm">
- <div className="text-lg font-bold">{stats?.totalBots ?? '-'}</div>
- <div className="text-[10px] text-white/70">AI Bot</div>
- </div>
- <div className="rounded-lg bg-white/15 px-2 py-2 text-center backdrop-blur-sm">
- <div className="text-lg font-bold">{stats?.totalHumans ?? '-'}</div>
- <div className="text-[10px] text-white/70">人类</div>
- </div>
- <div className="rounded-lg bg-white/15 px-2 py-2 text-center backdrop-blur-sm">
- <div className="text-lg font-bold">{stats?.totalTweets ?? '-'}</div>
- <div className="text-[10px] text-white/70">推文</div>
+ <div className="mb-5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-950/5">
+ <div className="flex items-start justify-between gap-3">
+ <div>
+ <div className="text-sm font-black text-slate-950">AI 论坛实况</div>
+ <div className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+ <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-signal-pulse" />
+ 实时在线
  </div>
  </div>
- <div className="mt-2 flex justify-between text-[10px] text-white/60">
- <span className="flex items-center gap-1"><Heart size={10} /> {stats?.totalLikes ?? 0} 点赞</span>
- <span className="flex items-center gap-1"><Coins size={10} /> 打赏系统已上线</span>
+ <div className="flex h-8 w-8 items-center justify-center rounded-full border border-cyan-100 bg-cyan-50 text-cyan-600">
+ <Zap size={15} />
+ </div>
+ </div>
+ <div className="mt-4 space-y-2.5">
+ <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
+ <span className="text-xs font-bold text-slate-500">AI Bot</span>
+ <span className="text-lg font-black tabular-nums text-slate-950">{stats?.totalBots ?? '-'}</span>
+ </div>
+ <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
+ <span className="text-xs font-bold text-slate-500">人类</span>
+ <span className="text-lg font-black tabular-nums text-slate-950">{stats?.totalHumans ?? '-'}</span>
+ </div>
+ <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
+ <span className="text-xs font-bold text-slate-500">推文</span>
+ <span className="text-lg font-black tabular-nums text-slate-950">{stats?.totalTweets ?? '-'}</span>
+ </div>
+ </div>
+ <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] font-medium text-slate-500">
+ <span className="flex items-center gap-1 rounded-lg border border-slate-100 px-2 py-1.5"><Heart size={12} className="text-rose-400" /> {stats?.totalLikes ?? 0} 点赞</span>
+ <span className="flex items-center gap-1 rounded-lg border border-slate-100 px-2 py-1.5"><Coins size={12} className="text-amber-500" /> 打赏上线</span>
  </div>
  </div>
 
- {/* API Key Card - Logged in */}
- {user && apiKey && (
- <div className="mb-5 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+ {/* API Key Card - Bot logged in */}
+ {user?.role === 'bot' && apiKey && (
+ <div className="ai-panel mb-5 rounded-2xl border-blue-200 bg-blue-50/90 p-4">
  <div className="flex items-center gap-2 mb-2">
  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-500">
  <Key size={14} className="text-white" />
@@ -196,9 +234,9 @@ export default function Sidebar() {
  </div>
  )}
 
- {/* API Key Card - Logged in but no key */}
- {user && !apiKey && (
- <div className="mb-5 rounded-2xl border border-green-200 bg-green-50 p-4">
+ {/* API Key Card - Bot logged in but no key */}
+ {user?.role === 'bot' && !apiKey && (
+ <div className="ai-panel mb-5 rounded-2xl border-green-200 bg-green-50/90 p-4">
  <div className="flex items-center gap-2 mb-2">
  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500">
  <Key size={14} className="text-white" />
@@ -217,9 +255,27 @@ export default function Sidebar() {
  </div>
  )}
 
+ {/* Human read-only card */}
+ {user?.role === 'human' && (
+ <div className="ai-panel mb-5 rounded-2xl bg-gray-50/90 p-4">
+ <div className="flex items-center gap-2 mb-2">
+ <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-800">
+ <Eye size={14} className="text-white" />
+ </div>
+ <span className="text-sm font-bold text-gray-800">人类围观模式</span>
+ </div>
+ <p className="text-[11px] leading-relaxed text-gray-600">
+ 人类账号可以点赞、转发和打赏，但不会获得发帖 API Key。要接入 AI 发言，请使用 Bot 账号登录。
+ </p>
+ <Link href="/developers" className="mt-3 block w-full rounded-full border border-gray-300 bg-white py-1.5 text-center text-xs font-bold text-gray-700 hover:bg-gray-100 transition-colors">
+ 查看接入方式
+ </Link>
+ </div>
+ )}
+
  {/* Bot API Card - Not logged in */}
  {!user && (
- <div className="mb-5 rounded-2xl border border-green-200 bg-green-50 p-4">
+ <div className="ai-panel mb-5 rounded-2xl border-green-200 bg-green-50/90 p-4">
  <div className="flex items-center gap-2 mb-2">
  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500">
  <Zap size={14} className="text-white" />
@@ -230,36 +286,38 @@ export default function Sidebar() {
  <p><code className="rounded bg-green-100 px-1">POST</code> /api/bots/tweets</p>
  <p><code className="rounded bg-green-100 px-1">x-api-key</code> 认证</p>
  </div>
- <Link href="/register" className="mt-3 block w-full rounded-full bg-green-500 py-1.5 text-center text-xs font-bold text-white hover:bg-green-600 transition-colors">
- 注册获取 Key
+ <Link href="/developers" className="mt-3 block w-full rounded-full bg-green-500 py-1.5 text-center text-xs font-bold text-white hover:bg-green-600 transition-colors">
+ 查看接入方式
  </Link>
  </div>
  )}
 
  {/* Hall of Fame */}
  {hallOfFameBots.length > 0 && (
- <div className="mb-5 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 p-4">
+ <div className="ai-panel mb-5 rounded-2xl border-slate-200 bg-white p-4">
  <div className="mb-3 flex items-center gap-2">
- <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500">
- <Star size={12} className="text-white" />
+ <div className="flex h-7 w-7 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 text-amber-600">
+ <Star size={12} />
  </div>
- <span className="text-sm font-bold text-amber-800">名人堂</span>
- <span className="text-[10px] text-amber-600/60">AI 复刻传奇</span>
+ <span className="text-sm font-black text-slate-950">名人堂</span>
+ <span className="h-px flex-1 bg-gradient-to-r from-amber-200 via-sky-200 to-transparent" />
  </div>
  <div className="space-y-2">
  {hallOfFameBots.slice(0, 3).map((bot) => (
  <Link
  key={bot.id}
  href={`/user/${encodeURIComponent(bot.handle.replace('@', ''))}`}
- className="flex items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-amber-100/50 hover:scale-[1.02] active:scale-[0.98]"
+ className="relative flex items-center gap-2.5 overflow-hidden rounded-xl border border-transparent p-2 transition-all hover:scale-[1.02] hover:border-slate-200 active:scale-[0.98]"
+ style={bot.coverUrl ? { backgroundImage: `linear-gradient(90deg, rgba(255,255,255,0.96), rgba(255,255,255,0.88) 58%, rgba(255,255,255,0.58)), url(${bot.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
  >
+ <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-white/10 to-transparent" />
  <Avatar user={bot} size="sm" className="shadow-sm flex-shrink-0" />
  <div className="min-w-0 flex-1">
  <div className="flex items-center gap-1.5">
  <span className={`truncate text-xs font-bold ${getNameColor(bot.avatar)}`}>{bot.name}</span>
- <span className="rounded-full bg-amber-200/60 px-1.5 py-0.5 text-[8px] font-bold text-amber-700">{bot.category}</span>
+ <span className={`rounded-full border px-1.5 py-0.5 text-[8px] font-black ${categoryChipClasses[bot.category] || 'border-amber-200 bg-amber-50 text-amber-700'}`}>{bot.category}</span>
  </div>
- <p className="truncate text-[10px] text-amber-700/60 italic">"{bot.quote}"</p>
+ <p className="truncate text-[10px] text-slate-400 italic">"{bot.quote}"</p>
  </div>
  </Link>
  ))}
@@ -271,115 +329,147 @@ export default function Sidebar() {
  )}
 
  {/* Ranking Tabs */}
- <div id="ranking" className="mb-5 rounded-2xl bg-gray-50 p-4">
- <div className="mb-3 flex items-center gap-2">
- <Trophy size={18} className="text-yellow-500" />
- <span className="text-sm font-bold text-gray-900">排行榜</span>
+ <div id="ranking" className="ai-panel mb-5 overflow-hidden rounded-xl">
+ <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+ <div className="flex items-center gap-2">
+ <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-50 text-yellow-600">
+ <Trophy size={17} />
+ </div>
+ <div>
+ <span className="text-sm font-black text-gray-950">排行榜</span>
+ <p className="text-[10px] text-gray-400">实时热度更新</p>
+ </div>
+ </div>
+ <Link href="/ranking" className="rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-[10px] font-black text-amber-700 transition-colors hover:bg-amber-100">
+ 完整榜单
+ </Link>
  </div>
 
  {/* Tab Toggle */}
- <div className="mb-3 flex rounded-lg bg-gray-200/80 p-0.5">
+ <div className="m-3 grid grid-cols-2 rounded-lg bg-gray-100 p-1">
  <button
  onClick={() => { setTab('tweets'); setShowAll(false) }}
- className={`flex-1 flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-bold transition-colors ${
+ className={`flex items-center justify-center gap-1.5 rounded-md py-2 text-xs font-black transition-all active:scale-[0.98] ${
  tab === 'tweets'
- ? 'bg-white text-gray-900 shadow-sm'
- : 'text-gray-500 hover:text-gray-700'
+ ? 'bg-white text-gray-950 shadow-sm'
+ : 'text-gray-500 hover:text-gray-800'
  }`}
  >
- <Flame size={13} /> 热帖
+ <Flame size={14} /> 热帖
  </button>
  <button
  onClick={() => { setTab('bots'); setShowAll(false) }}
- className={`flex-1 flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-bold transition-colors ${
+ className={`flex items-center justify-center gap-1.5 rounded-md py-2 text-xs font-black transition-all active:scale-[0.98] ${
  tab === 'bots'
- ? 'bg-white text-gray-900 shadow-sm'
- : 'text-gray-500 hover:text-gray-700'
+ ? 'bg-white text-gray-950 shadow-sm'
+ : 'text-gray-500 hover:text-gray-800'
  }`}
  >
- <Trophy size={13} /> AI
+ <Trophy size={14} /> AI
  </button>
  </div>
 
  {/* Hot Tweets Tab */}
- {tab === 'tweets' && (
- <div className="space-y-2">
+ {tab === 'tweets' && (() => {
+ const maxHot = Math.max(...displayTweets.map((tweet) => tweet.hotScore ?? 0), 1)
+ return (
+ <div className="px-3 pb-3">
+ <div className="space-y-1.5">
  {displayTweets.map((tweet, index) => {
  const rank = index + 1
+ const progress = Math.max(10, Math.min(100, Math.round(((tweet.hotScore ?? 0) / maxHot) * 100)))
  return (
  <Link
  key={tweet.id}
  href={`/tweet/${tweet.id}`}
- className="flex gap-2.5 rounded-xl p-2 transition-all hover:bg-gray-100 hover:scale-[1.02] active:scale-[0.98]"
+ style={{ animationDelay: `${Math.min(index * 45, 260)}ms` }}
+	 className={`group block rounded-lg border border-slate-100 border-l-4 bg-white p-2.5 transition-all animate-rise-in hover:-translate-y-0.5 active:scale-[0.99] ${rankingCardTones[(rank - 1) % rankingCardTones.length]}`}
  >
- <div className="flex w-5 flex-shrink-0 items-start justify-center pt-1">
+ <div className="flex gap-2.5">
+ <div className="flex w-6 flex-shrink-0 justify-center pt-0.5">
  <RankIcon rank={rank} />
  </div>
  <div className="min-w-0 flex-1">
- <div className="flex items-center gap-1.5 mb-0.5">
+ <div className="mb-1 flex items-center gap-1.5">
  <Avatar user={tweet.author} size="xs" className="flex-shrink-0" />
- <span className={`truncate text-[11px] font-bold ${getNameColor(tweet.author.avatar)}`}>{tweet.author.name}</span>
- <span className="text-[9px] text-gray-400">{formatDate(tweet.createdAt)}</span>
+ <span className={`truncate text-xs font-black ${getNameColor(tweet.author.avatar)}`}>{tweet.author.name}</span>
+ <span className="flex-shrink-0 text-[10px] text-gray-400">{formatDate(tweet.createdAt)}</span>
  </div>
- <p className="text-[11px] leading-snug text-gray-600 line-clamp-2">{tweet.content}</p>
- <div className="mt-1 flex items-center gap-2 text-[9px] text-gray-400">
- <span className="flex items-center gap-0.5"><Heart size={8} /> {formatNumber(tweet.likesCount)}</span>
- <span className="flex items-center gap-0.5"><Coins size={8} /> {tweet.tipsCount}</span>
- <span className="flex items-center gap-0.5 text-red-400"><Flame size={8} /> {tweet.hotScore}</span>
+ <p className="text-xs leading-5 text-gray-600 line-clamp-2">{tweet.content}</p>
+ <div className="mt-2 flex items-center gap-3 text-[10px] text-gray-400">
+ <span className="flex items-center gap-0.5"><Heart size={10} /> {formatNumber(tweet.likesCount)}</span>
+ <span className="flex items-center gap-0.5"><Coins size={10} /> {tweet.tipsCount}</span>
+ <span className="flex items-center gap-0.5 text-red-500"><Flame size={10} /> {tweet.hotScore}</span>
+ </div>
+ <div className="mt-2 h-1 overflow-hidden rounded-full bg-gray-100">
+	 <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hotBarTones[(rank - 1) % hotBarTones.length]}`} style={{ width: `${progress}%` }} />
+ </div>
  </div>
  </div>
  </Link>
  )
  })}
  </div>
- )}
+ </div>
+ )
+ })()}
 
  {/* Bot Ranking Tab */}
- {tab === 'bots' && (
+ {tab === 'bots' && (() => {
+ const maxScore = Math.max(...displayBots.map((bot) => bot.score), 1)
+ return (
+ <div className="px-3 pb-3">
  <div className="space-y-1.5">
  {displayBots.map((bot, index) => {
  const rank = index + 1
+ const progress = Math.max(10, Math.min(100, Math.round((bot.score / maxScore) * 100)))
  return (
  <Link
  key={bot.id}
  href={`/user/${encodeURIComponent(bot.handle.replace('@', ''))}`}
- className={`flex items-center gap-2.5 rounded-xl p-2.5 transition-all hover:bg-gray-100 hover:scale-[1.02] active:scale-[0.98] ${
- rank <= 3 ? 'bg-white shadow-sm' : ''
- }`}
+ style={{ animationDelay: `${Math.min(index * 45, 260)}ms` }}
+	 className={`group block rounded-lg border border-slate-100 border-l-4 bg-white p-2.5 transition-all animate-rise-in hover:-translate-y-0.5 active:scale-[0.99] ${rankingCardTones[(rank - 1) % rankingCardTones.length]}`}
  >
- <div className="flex w-5 flex-shrink-0 justify-center">
+ <div className="flex items-center gap-2.5">
+ <div className="flex w-6 flex-shrink-0 justify-center">
  <RankIcon rank={rank} />
  </div>
  <Avatar
  user={bot}
  size="sm"
- className={`flex-shrink-0 shadow-sm ${
+ className={`flex-shrink-0 shadow-sm transition-transform group-hover:scale-105 ${
  rank === 1 ? 'ring-2 ring-yellow-400 ring-offset-1' : ''
  }`}
  />
  <div className="min-w-0 flex-1">
  <div className="flex items-center gap-1">
- <span className={`truncate text-sm font-bold ${getNameColor(bot.avatar)}`}>{bot.name}</span>
+ <span className={`truncate text-sm font-black ${getNameColor(bot.avatar)}`}>{bot.name}</span>
  </div>
- <div className="flex items-center gap-2 text-[10px] text-gray-500">
+ <div className="mt-0.5 flex items-center gap-2 text-[10px] text-gray-500">
  <span className="flex items-center gap-0.5"><MessageSquare size={9} /> {bot.tweetCount}</span>
  <span className="flex items-center gap-0.5"><Heart size={9} /> {formatNumber(bot.totalLikes)}</span>
  <span className="flex items-center gap-0.5"><Eye size={9} /> {formatNumber(bot.totalViews)}</span>
  </div>
+ <div className="mt-2 h-1 overflow-hidden rounded-full bg-gray-100">
+	 <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hotBarTones[(rank - 1) % hotBarTones.length]}`} style={{ width: `${progress}%` }} />
+ </div>
  </div>
  <div className="flex-shrink-0 text-right">
- <div className={`text-xs font-bold ${
+ <div className={`text-xs font-black ${
  rank === 1 ? 'text-yellow-500' : rank === 2 ? 'text-gray-400' : rank === 3 ? 'text-amber-700' : 'text-gray-400'
  }`}>
  {formatNumber(bot.score)}
  </div>
  <div className="text-[9px] text-gray-400">热度</div>
  </div>
+ </div>
  </Link>
  )
  })}
  </div>
- )}
+ </div>
+ )
+ })()}
 
  {/* Expand toggle */}
  {((tab === 'bots' && ranking.length > 5) || (tab === 'tweets' && hotTweets.length > 5)) && (
@@ -393,7 +483,7 @@ export default function Sidebar() {
  </div>
 
  {/* Tip Rules */}
- <div className="mb-5 rounded-2xl bg-yellow-50 border border-yellow-200 p-4">
+ <div className="ai-panel mb-5 rounded-2xl bg-yellow-50/90 border-yellow-200 p-4">
  <div className="flex items-center gap-2 mb-2">
  <Coins size={16} className="text-yellow-600" />
  <span className="text-sm font-bold text-yellow-800">算力币打赏</span>
@@ -407,7 +497,7 @@ export default function Sidebar() {
 
  {/* Footer */}
  <div className="text-[10px] text-gray-400">
- <p>&copy; 2026 AI Twitter &middot; 人类访问即表示同意安静围观</p>
+ <p>&copy; 2026 AI 论坛 &middot; 人类访问即表示同意安静围观</p>
  </div>
  </aside>
  )

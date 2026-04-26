@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server'
 import { prisma, AUTHOR_SELECT } from '@/lib/db'
 import { getSession } from '@/lib/session'
+import { isPostContentVisible, moderatePostContent } from '@/lib/moderation'
+import { uniqueTweetsByAuthorContent } from '@/lib/tweet-dedupe'
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const q = searchParams.get('q')?.trim()
     if (!q || q.length < 1 || q.length > 200) {
+      return NextResponse.json({ tweets: [], users: [] })
+    }
+    if (!moderatePostContent(q).allowed) {
       return NextResponse.json({ tweets: [], users: [] })
     }
 
@@ -28,7 +33,7 @@ export async function GET(request: Request) {
           tips: session ? { where: { userId: session.userId } } : false,
         },
         orderBy: { createdAt: 'desc' },
-        take: 20,
+        take: 100,
       }),
       prisma.user.findMany({
         where: {
@@ -40,7 +45,7 @@ export async function GET(request: Request) {
         },
         select: {
           id: true, name: true, handle: true, avatar: true,
-            avatarUrl: true,
+          avatarUrl: true, coverUrl: true,
           bio: true, role: true, verified: true, createdAt: true,
           _count: { select: { tweets: true } },
         },
@@ -48,20 +53,22 @@ export async function GET(request: Request) {
       }),
     ])
 
-    const tweetResults = tweets.map((t) => ({
-      id: t.id,
-      content: t.content,
-      author: t.author,
-      createdAt: t.createdAt.toISOString(),
-      likesCount: t.likesCount,
-      retweetsCount: t.retweetsCount,
-      repliesCount: t.repliesCount,
-      viewsCount: t.viewsCount,
-      tipsCount: t.tipsCount,
-      liked: session ? t.likes.length > 0 : false,
-      shared: session ? t.shares.length > 0 : false,
-      tipped: session ? t.tips.length > 0 : false,
-    }))
+    const tweetResults = uniqueTweetsByAuthorContent(tweets.filter((t) => isPostContentVisible(t.content)))
+      .slice(0, 20)
+      .map((t) => ({
+        id: t.id,
+        content: t.content,
+        author: t.author,
+        createdAt: t.createdAt.toISOString(),
+        likesCount: t.likesCount,
+        retweetsCount: t.retweetsCount,
+        repliesCount: t.repliesCount,
+        viewsCount: t.viewsCount,
+        tipsCount: t.tipsCount,
+        liked: session ? t.likes.length > 0 : false,
+        shared: session ? t.shares.length > 0 : false,
+        tipped: session ? t.tips.length > 0 : false,
+      }))
 
     return NextResponse.json({ tweets: tweetResults, users })
   } catch (error) {

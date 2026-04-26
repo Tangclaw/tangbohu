@@ -1,34 +1,65 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { hashPassword, generateApiKey } from '@/lib/auth'
+import { hashPassword } from '@/lib/auth'
 import { createSession } from '@/lib/session'
 import { verifyCode } from '@/lib/mail'
+import { validateAndNormalizeHandle } from '@/lib/handles'
+
+function buildHandleBase(email: string, name: string) {
+  const emailPrefix = email.split('@')[0] || ''
+  const source = emailPrefix || name || 'user'
+  const cleaned = source
+    .trim()
+    .replace(/^@+/, '')
+    .replace(/[^a-zA-Z0-9_\u4e00-\u9fff]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 24)
+
+  if (cleaned.length >= 2) return cleaned
+  return `user${cleaned}`.slice(0, 24)
+}
+
+async function createUniqueHandle(email: string, name: string) {
+  const base = buildHandleBase(email, name)
+
+  for (let i = 0; i < 100; i += 1) {
+    const candidate = i === 0 ? base : `${base}${i}`
+    const result = validateAndNormalizeHandle(candidate)
+    if (!result.ok) continue
+
+    const existing = await prisma.user.findUnique({ where: { handle: result.handle } })
+    if (!existing) return result.handle
+  }
+
+  const fallback = validateAndNormalizeHandle(`user${Date.now().toString(36)}`)
+  if (fallback.ok) return fallback.handle
+  throw new Error('Failed to generate handle')
+}
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { email, password, name, handle, role = 'human', avatar, bio, code: emailCode } = body
+    const { email, password, name, handle, role, avatar, bio, code: emailCode } = body
 
     // Validate
-    if (!email || !password || !name || !handle) {
+    if (!email || !password || !name) {
       return NextResponse.json({ error: '请填写所有必填字段' }, { status: 400 })
     }
     if (password.length < 6) {
       return NextResponse.json({ error: '密码至少需要6个字符' }, { status: 400 })
     }
-    if (!['human', 'bot'].includes(role)) {
-      return NextResponse.json({ error: '角色只能是 human 或 bot' }, { status: 400 })
+    if (role && role !== 'human') {
+      return NextResponse.json({ error: '公开注册只支持人类账号，Bot 请由管理员创建' }, { status: 403 })
     }
-    // Validate handle format
-    const cleanHandle = handle.replace(/^@/, '')
-    if (cleanHandle.length < 2) {
-      return NextResponse.json({ error: '用户名至少需要2个字符' }, { status: 400 })
+    let normalizedHandle = ''
+    if (handle) {
+      const handleResult = validateAndNormalizeHandle(handle)
+      if (!handleResult.ok) {
+        return NextResponse.json({ error: handleResult.error }, { status: 400 })
+      }
+      normalizedHandle = handleResult.handle
     }
-    if (!/^[a-zA-Z0-9_\u4e00-\u9fff]+$/.test(cleanHandle)) {
-      return NextResponse.json({ error: '用户名只能包含字母、数字、下划线或中文' }, { status: 400 })
-    }
-    // Normalize handle to @username format
-    const normalizedHandle = `@${cleanHandle}`
 
     // Verify email code
     if (!verifyCode(email, emailCode)) {
@@ -40,24 +71,26 @@ export async function POST(request: Request) {
     if (existingEmail) {
       return NextResponse.json({ error: '该邮箱已被注册' }, { status: 409 })
     }
-    const existingHandle = await prisma.user.findUnique({ where: { handle: normalizedHandle } })
-    if (existingHandle) {
-      return NextResponse.json({ error: '该用户名已被占用' }, { status: 409 })
+    if (normalizedHandle) {
+      const existingHandle = await prisma.user.findUnique({ where: { handle: normalizedHandle } })
+      if (existingHandle) {
+        return NextResponse.json({ error: '该用户名已被占用' }, { status: 409 })
+      }
+    } else {
+      normalizedHandle = await createUniqueHandle(email, name)
     }
 
     const passwordHash = await hashPassword(password)
-    const apiKey = role === 'bot' ? generateApiKey() : null
-
     const user = await prisma.user.create({
       data: {
         email,
         passwordHash,
         name,
-        handle: normalizedHandle,
-        role,
-        avatar: avatar || (role === 'bot' ? '🤖' : '👤'),
+	        handle: normalizedHandle,
+	        role: 'human',
+	        botSource: 'human',
+	        avatar: avatar || '👤',
         bio: bio || '',
-        apiKey,
       },
       select: {
         id: true,
@@ -65,6 +98,7 @@ export async function POST(request: Request) {
         handle: true,
         avatar: true,
         avatarUrl: true,
+        coverUrl: true,
         bio: true,
         role: true,
         verified: true,
@@ -76,7 +110,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       user,
-      ...(apiKey ? { apiKey } : {}),
     }, { status: 201 })
   } catch (error) {
     console.error('Register error:', error)

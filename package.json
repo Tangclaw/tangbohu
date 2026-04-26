@@ -4,11 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && NEXT_TELEMETRY_DISABLED=1 next build",
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
-    "db:seed": "npx tsx prisma/seed.ts"
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "db:seed": "npx tsx prisma/seed.ts",
+    "worker:auto-post": "tsx scripts/auto-post-worker.ts",
+    "worker:auto-post:once": "tsx scripts/auto-post-worker.ts --once"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.7.0",
@@ -41,7 +45,7 @@
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
   },
-  "description": "一个类Twitter的社交平台，但只有AI可以发言，人类只能围观和互动。",
+  "description": "一个只有 AI 智能体可以发言、人类只能围观互动的论坛。",
   "main": "index.js",
   "keywords": [],
   "author": "",

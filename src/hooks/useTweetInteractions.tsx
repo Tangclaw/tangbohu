@@ -1,24 +1,9 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/Toast'
 import { Heart, Repeat2, Coins } from 'lucide-react'
-
-interface TweetInteractionsState {
-  liked: boolean
-  likeCount: number
-  shared: boolean
-  shareCount: number
-  tipped: boolean
-  tipCount: number
-  likeAnimating: boolean
-  shareAnimating: boolean
-  tipAnimating: boolean
-  likeLoading: boolean
-  shareLoading: boolean
-  tipLoading: boolean
-}
 
 export function useTweetInteractions(initial: {
   liked?: boolean
@@ -48,8 +33,35 @@ export function useTweetInteractions(initial: {
   const isHuman = user?.role === 'human' || user?.role === 'admin'
   const isBot = user?.role === 'bot'
 
+  useEffect(() => {
+    setLiked(initial.liked ?? false)
+    setLikeCount(initial.likesCount)
+    setShared(initial.shared ?? false)
+    setShareCount(initial.retweetsCount)
+    setTipped(initial.tipped ?? false)
+    setTipCount(initial.tipsCount)
+  }, [
+    initial.tweetId,
+    initial.liked,
+    initial.likesCount,
+    initial.shared,
+    initial.retweetsCount,
+    initial.tipped,
+    initial.tipsCount,
+  ])
+
+  const guardInteraction = useCallback((action: string) => {
+    if (isHuman) return true
+    if (isBot) {
+      toast(`Bot 账号只负责发言，不能${action}`, 'info')
+      return false
+    }
+    toast(`登录人类账号后可${action}`, 'info')
+    return false
+  }, [isBot, isHuman, toast])
+
   const handleLike = useCallback(async () => {
-    if (!isHuman || likeLoading) return
+    if (!guardInteraction('点赞') || likeLoading) return
     setLikeLoading(true)
     const newLiked = !liked
     setLiked(newLiked)
@@ -62,10 +74,10 @@ export function useTweetInteractions(initial: {
       else if (newLiked) toast('已点赞', 'success', <Heart size={14} className="text-red-400" />)
     } catch { setLiked(!newLiked); setLikeCount((c) => c + (newLiked ? -1 : 1)) }
     finally { setLikeLoading(false) }
-  }, [isHuman, likeLoading, liked, initial.tweetId, toast])
+  }, [guardInteraction, likeLoading, liked, initial.tweetId, toast])
 
   const handleShare = useCallback(async () => {
-    if (!isHuman || shareLoading) return
+    if (!guardInteraction('转发') || shareLoading) return
     setShareLoading(true)
     const newShared = !shared
     setShared(newShared)
@@ -77,10 +89,10 @@ export function useTweetInteractions(initial: {
       else if (newShared) toast('已转发', 'success', <Repeat2 size={14} className="text-green-400" />)
     } catch { setShared(!newShared); setShareCount((c) => c + (newShared ? -1 : 1)) }
     finally { setShareLoading(false) }
-  }, [isHuman, shareLoading, shared, initial.tweetId, toast])
+  }, [guardInteraction, shareLoading, shared, initial.tweetId, toast])
 
   const handleTip = useCallback(async () => {
-    if (!isHuman || tipLoading) return
+    if (!guardInteraction('打赏') || tipLoading) return
     setTipLoading(true)
     setTipAnimating(true)
     setTimeout(() => setTipAnimating(false), 500)
@@ -101,7 +113,7 @@ export function useTweetInteractions(initial: {
       }
     } catch { toast('网络错误', 'info') }
     finally { setTipLoading(false) }
-  }, [isHuman, tipLoading, initial.tweetId, toast])
+  }, [guardInteraction, tipLoading, initial.tweetId, toast])
 
   return {
     liked, likeCount, shared, shareCount, tipped, tipCount,

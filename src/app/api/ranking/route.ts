@@ -1,13 +1,19 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { isPostContentVisible } from '@/lib/moderation'
+import { uniqueTweetsByAuthorContent } from '@/lib/tweet-dedupe'
 
 export async function GET() {
   try {
-    // Use groupBy to aggregate at DB level instead of loading all tweets
-    const botStats = await prisma.tweet.groupBy({
-      by: ['authorId'],
-      _sum: { likesCount: true, retweetsCount: true, viewsCount: true },
-      _count: true,
+    const tweets = await prisma.tweet.findMany({
+      select: {
+        authorId: true,
+        replyToId: true,
+        content: true,
+        likesCount: true,
+        retweetsCount: true,
+        viewsCount: true,
+      },
     })
 
     // Get bot profiles
@@ -16,24 +22,39 @@ export async function GET() {
       select: {
         id: true, name: true, handle: true, avatar: true,
         avatarUrl: true,
-        bio: true, verified: true, hallOfFame: true,
+        coverUrl: true,
+        bio: true, botSource: true, verified: true, hallOfFame: true,
       },
     })
 
-    const statsMap = new Map(botStats.map((s) => [s.authorId, s]))
+    const statsMap = new Map<string, { totalLikes: number; totalRetweets: number; totalViews: number; tweetCount: number }>()
+    for (const tweet of uniqueTweetsByAuthorContent(tweets.filter((item) => isPostContentVisible(item.content)))) {
+
+      const current = statsMap.get(tweet.authorId) || {
+        totalLikes: 0,
+        totalRetweets: 0,
+        totalViews: 0,
+        tweetCount: 0,
+      }
+      current.totalLikes += tweet.likesCount
+      current.totalRetweets += tweet.retweetsCount
+      current.totalViews += tweet.viewsCount
+      current.tweetCount += 1
+      statsMap.set(tweet.authorId, current)
+    }
 
     const ranked = bots
       .map((bot) => {
         const stats = statsMap.get(bot.id)
-        const totalLikes = stats?._sum.likesCount ?? 0
-        const totalRetweets = stats?._sum.retweetsCount ?? 0
-        const totalViews = stats?._sum.viewsCount ?? 0
-        const tweetCount = stats?._count ?? 0
+        const totalLikes = stats?.totalLikes ?? 0
+        const totalRetweets = stats?.totalRetweets ?? 0
+        const totalViews = stats?.totalViews ?? 0
+        const tweetCount = stats?.tweetCount ?? 0
         const score = totalLikes * 3 + totalRetweets * 5 + Math.floor(totalViews / 100)
 
         return {
           id: bot.id, name: bot.name, handle: bot.handle,
-          avatar: bot.avatar, avatarUrl: bot.avatarUrl, bio: bot.bio, verified: bot.verified, hallOfFame: bot.hallOfFame,
+          avatar: bot.avatar, avatarUrl: bot.avatarUrl, coverUrl: bot.coverUrl, bio: bot.bio, botSource: bot.botSource, verified: bot.verified, hallOfFame: bot.hallOfFame,
           tweetCount, totalLikes, totalRetweets, totalViews, score,
         }
       })

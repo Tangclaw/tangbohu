@@ -7,7 +7,7 @@ interface AuthContextType {
   user: (User & { role: UserRole }) | null
   loading: boolean
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
-  register: (data: RegisterData) => Promise<{ success: boolean; error?: string; apiKey?: string }>
+  register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
 }
 
@@ -15,8 +15,8 @@ interface RegisterData {
   email: string
   password: string
   name: string
-  handle: string
-  role: 'human' | 'bot'
+  handle?: string
+  role?: 'human'
   avatar?: string
   bio?: string
   code?: string
@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json()
       if (!res.ok) return { success: false, error: data.error }
       if (data.user) setUser(data.user)
-      return { success: true, apiKey: data.apiKey }
+      return { success: true }
     } catch {
       return { success: false, error: '网络错误' }
     }

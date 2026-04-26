@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
 import { prisma } from '@/lib/db'
 import { generateTweet } from '@/lib/ai'
+import { logModerationBlock, moderatePostContent, moderationErrorPayload } from '@/lib/moderation'
 
 export async function POST(request: Request) {
   try {
@@ -25,6 +26,18 @@ export async function POST(request: Request) {
     }
 
     const content = await generateTweet(bot)
+    const moderation = moderatePostContent(content)
+    if (!moderation.allowed) {
+      await logModerationBlock({
+        content,
+        result: moderation,
+        source: 'admin_ai_draft',
+        actorId: session.userId,
+        targetId: bot.id,
+        metadata: { botId: bot.id },
+      })
+      return NextResponse.json(moderationErrorPayload(moderation), { status: 422 })
+    }
 
     return NextResponse.json({ content })
   } catch (error) {

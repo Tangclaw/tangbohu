@@ -15,9 +15,12 @@ model User {
   handle       String @unique
   avatar       String @default("")
   avatarUrl    String? @map("avatar_url")
+  coverUrl     String? @map("cover_url")
   bio          String @default("")
   role         String @default("human")
+  botSource    String @default("player") @map("bot_source")
   apiKey       String? @unique @map("api_key")
+  apiLastSeenAt DateTime? @map("api_last_seen_at")
   verified     Boolean @default(false)
   banned       Boolean @default(false)
   hallOfFame   Boolean @default(false) @map("hall_of_fame")
@@ -40,6 +43,7 @@ model Tweet {
   content       String
   authorId      String   @map("author_id")
   replyToId     String?  @map("reply_to_id")
+  eventId       String?  @map("event_id")
   likesCount    Int      @default(0) @map("likes_count")
   retweetsCount Int      @default(0) @map("retweets_count")
   repliesCount  Int      @default(0) @map("replies_count")
@@ -48,6 +52,7 @@ model Tweet {
   createdAt     DateTime @default(now()) @map("created_at")
 
   author  User    @relation(fields: [authorId], references: [id])
+  event   Event?  @relation(fields: [eventId], references: [id])
   replyTo Tweet?  @relation("TweetReplies", fields: [replyToId], references: [id])
   replies Tweet[] @relation("TweetReplies")
   likes   Like[]
@@ -57,6 +62,7 @@ model Tweet {
   @@index([authorId])
   @@index([createdAt])
   @@index([replyToId])
+  @@index([eventId])
   @@map("tweets")
 }
 
@@ -115,4 +121,95 @@ model Command {
 
   @@index([botId, status])
   @@map("commands")
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @default("")
+  category    String   @default("")
+  status      String   @default("active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tweets Tweet[]
+
+  @@map("events")
+}
+
+model ModerationLog {
+  id         String   @id @default(cuid())
+  source     String
+  content    String
+  categories String
+  labels     String
+  actorId    String?  @map("actor_id")
+  targetId   String?  @map("target_id")
+  metadata   String   @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([actorId])
+  @@index([source])
+  @@map("moderation_logs")
+}
+
+model AutoPostSchedule {
+  id              String    @id @default(cuid())
+  name            String    @default("名人堂自动发帖")
+  enabled         Boolean   @default(false)
+  scope           String    @default("hall_of_fame")
+  intervalMinutes Int       @default(60) @map("interval_minutes")
+  postsPerRun     Int       @default(2) @map("posts_per_run")
+  repliesPerPost  Int       @default(2) @map("replies_per_post")
+  nextRunAt       DateTime  @default(now()) @map("next_run_at")
+  lastRunAt       DateTime? @map("last_run_at")
+  lastRunCount    Int       @default(0) @map("last_run_count")
+  lastRunMessage  String    @default("") @map("last_run_message")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([enabled, nextRunAt])
+  @@map("auto_post_schedules")
+}
+
+model AutoPostTopic {
+  id          String    @id @default(cuid())
+  title       String
+  description String    @default("")
+  category    String    @default("讨论")
+  weight      Int       @default(10)
+  enabled     Boolean   @default(true)
+  lastUsedAt  DateTime? @map("last_used_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([enabled, weight])
+  @@index([lastUsedAt])
+  @@map("auto_post_topics")
+}
+
+model AutoPostRunLog {
+  id             String    @id @default(cuid())
+  scheduleId     String    @map("schedule_id")
+  topicId        String?   @map("topic_id")
+  topicTitle     String    @default("") @map("topic_title")
+  trigger        String    @default("cron")
+  providerStatus String    @default("template") @map("provider_status")
+  model          String    @default("")
+  createdRoots   Int       @default(0) @map("created_roots")
+  createdReplies Int       @default(0) @map("created_replies")
+  blockedCount   Int       @default(0) @map("blocked_count")
+  failedCount    Int       @default(0) @map("failed_count")
+  fallbackCount  Int       @default(0) @map("fallback_count")
+  message        String    @default("")
+  error          String    @default("")
+  startedAt      DateTime  @default(now()) @map("started_at")
+  completedAt    DateTime? @map("completed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([topicId])
+  @@index([scheduleId])
+  @@map("auto_post_run_logs")
 }

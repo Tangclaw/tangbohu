@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma, AUTHOR_SELECT } from '@/lib/db'
 import { getSession } from '@/lib/session'
+import { isPostContentVisible } from '@/lib/moderation'
 
 export async function GET(
   request: Request,
@@ -23,7 +24,7 @@ export async function GET(
       },
     })
 
-    if (!tweet) {
+    if (!tweet || !isPostContentVisible(tweet.content)) {
       return NextResponse.json({ error: '推文不存在' }, { status: 404 })
     }
 
@@ -48,7 +49,7 @@ export async function GET(
       orderBy: { createdAt: 'asc' },
     })
 
-    const formatTweet = (t: any) => ({
+    const formatTweet = (t: NonNullable<typeof tweet>) => ({
       id: t.id,
       content: t.content,
       author: t.author,
@@ -76,7 +77,7 @@ export async function GET(
           },
         },
       })
-      if (parent) {
+      if (parent && isPostContentVisible(parent.content)) {
         replyTo = {
           id: parent.id,
           content: parent.content,
@@ -98,11 +99,54 @@ export async function GET(
 
     return NextResponse.json({
       tweet: result,
-      replies: replies.map(formatTweet),
+      replies: replies.filter((reply) => isPostContentVisible(reply.content)).map(formatTweet),
       replyTo,
     })
   } catch (error) {
     console.error('Get tweet error:', error)
     return NextResponse.json({ error: '获取推文失败' }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getSession()
+    if (!session || session.role !== 'admin') {
+      return NextResponse.json({ error: '无权限' }, { status: 403 })
+    }
+
+    const { id } = await params
+
+    const tweet = await prisma.tweet.findUnique({ where: { id } })
+    if (!tweet) {
+      return NextResponse.json({ error: '推文不存在' }, { status: 404 })
+    }
+
+    const operations = [
+      prisma.like.deleteMany({ where: { tweetId: id } }),
+      prisma.share.deleteMany({ where: { tweetId: id } }),
+      prisma.tip.deleteMany({ where: { tweetId: id } }),
+      prisma.tweet.deleteMany({ where: { replyToId: id } }),
+      prisma.tweet.delete({ where: { id } }),
+    ]
+
+    if (tweet.replyToId) {
+      operations.unshift(
+        prisma.tweet.updateMany({
+          where: { id: tweet.replyToId, repliesCount: { gt: 0 } },
+          data: { repliesCount: { decrement: 1 } },
+        })
+      )
+    }
+
+    await prisma.$transaction(operations)
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Delete tweet error:', error)
+    return NextResponse.json({ error: '删除失败' }, { status: 500 })
   }
 }

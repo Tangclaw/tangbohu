@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server'
 import { prisma, AUTHOR_SELECT } from '@/lib/db'
 import { getSession } from '@/lib/session'
 import { generateApiKey } from '@/lib/auth'
-import { deleteAvatar } from '@/lib/storage'
+import { deleteUsersForAdmin, resetBotForAdmin } from '@/lib/admin-user-cleanup'
+import { isPostContentVisible, logModerationBlock, moderatePostContent, moderationErrorPayload } from '@/lib/moderation'
+import { validateAndNormalizeHandle } from '@/lib/handles'
 
 export async function PATCH(
   request: Request,
@@ -21,12 +23,38 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { verified, banned, hallOfFame, name, handle, bio, avatar, category, quote, avatarUrl } = body
+    const { verified, banned, hallOfFame, name, handle, bio, avatar, category, quote, avatarUrl, coverUrl, botSource } = body
+    let normalizedHandle: string | undefined
+
+    if (name !== undefined && !String(name).trim()) {
+      return NextResponse.json({ error: '名称不能为空' }, { status: 400 })
+    }
+    if (botSource !== undefined && botSource !== 'official' && botSource !== 'player') {
+      return NextResponse.json({ error: '无效 Bot 来源' }, { status: 400 })
+    }
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, role: true },
+    })
+
+    if (!targetUser) {
+      return NextResponse.json({ error: '用户不存在' }, { status: 404 })
+    }
+    if (botSource !== undefined && targetUser.role !== 'bot') {
+      return NextResponse.json({ error: '只能修改 Bot 来源' }, { status: 400 })
+    }
 
     // Check handle uniqueness if changing
-    if (handle) {
+    if (handle !== undefined) {
+      const handleResult = validateAndNormalizeHandle(handle)
+      if (!handleResult.ok) {
+        return NextResponse.json({ error: handleResult.error }, { status: 400 })
+      }
+      normalizedHandle = handleResult.handle
+
       const existing = await prisma.user.findFirst({
-        where: { handle, NOT: { id } },
+        where: { handle: normalizedHandle, NOT: { id } },
       })
       if (existing) {
         return NextResponse.json({ error: 'Handle 已被使用' }, { status: 409 })
@@ -39,18 +67,20 @@ export async function PATCH(
         ...(verified !== undefined ? { verified } : {}),
         ...(banned !== undefined ? { banned } : {}),
         ...(hallOfFame !== undefined ? { hallOfFame } : {}),
-        ...(name !== undefined ? { name } : {}),
-        ...(handle !== undefined ? { handle } : {}),
-        ...(bio !== undefined ? { bio } : {}),
+        ...(name !== undefined ? { name: String(name).trim() } : {}),
+        ...(normalizedHandle !== undefined ? { handle: normalizedHandle } : {}),
+        ...(bio !== undefined ? { bio: String(bio).trim() } : {}),
         ...(avatar !== undefined ? { avatar } : {}),
         ...(category !== undefined ? { category } : {}),
         ...(quote !== undefined ? { quote } : {}),
         ...(avatarUrl !== undefined ? { avatarUrl } : {}),
+        ...(coverUrl !== undefined ? { coverUrl } : {}),
+        ...(botSource !== undefined ? { botSource } : {}),
       },
       select: {
         id: true, name: true, handle: true, avatar: true,
-        avatarUrl: true, bio: true, role: true, verified: true, banned: true,
-        hallOfFame: true, category: true, quote: true,
+        avatarUrl: true, coverUrl: true, bio: true, role: true, verified: true, banned: true,
+        hallOfFame: true, category: true, quote: true, botSource: true,
       },
     })
 
@@ -79,7 +109,7 @@ export async function DELETE(
 
     const user = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, role: true, avatarUrl: true, handle: true },
+      select: { id: true, role: true, avatarUrl: true, coverUrl: true, handle: true },
     })
 
     if (!user) {
@@ -90,13 +120,7 @@ export async function DELETE(
       return NextResponse.json({ error: '不能删除管理员' }, { status: 400 })
     }
 
-    // Delete avatar file if exists
-    if (user.avatarUrl) {
-      await deleteAvatar(user.avatarUrl).catch(() => {})
-    }
-
-    // Delete user (cascade deletes tweets → likes/shares/tips)
-    await prisma.user.delete({ where: { id } })
+    await deleteUsersForAdmin([user.id])
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -134,11 +158,13 @@ export async function POST(
 
     switch (action) {
       case 'reset': {
-        // Regenerate API key and delete all tweets
+        if (user.role !== 'bot') {
+          return NextResponse.json({ error: '只能复位 Bot 账号' }, { status: 400 })
+        }
+
         const apiKey = generateApiKey()
 
-        // Delete all tweets by this user (cascade handles likes/shares/tips)
-        await prisma.tweet.deleteMany({ where: { authorId: id } })
+        await resetBotForAdmin(id)
 
         await prisma.user.update({
           where: { id },
@@ -149,26 +175,43 @@ export async function POST(
       }
 
       case 'tweet': {
+        if (user.role !== 'bot') {
+          return NextResponse.json({ error: '只能代 Bot 发言' }, { status: 400 })
+        }
+
         // Post a tweet on behalf of this user
         const { content, replyToId } = body
 
-        if (!content || !content.trim()) {
+        if (typeof content !== 'string' || !content.trim()) {
           return NextResponse.json({ error: '推文内容不能为空' }, { status: 400 })
         }
         if (content.length > 280) {
           return NextResponse.json({ error: '推文内容不能超过280个字符' }, { status: 400 })
         }
+        const trimmedContent = content.trim()
+        const moderation = moderatePostContent(trimmedContent)
+        if (!moderation.allowed) {
+          await logModerationBlock({
+            content: trimmedContent,
+            result: moderation,
+            source: 'admin_proxy_post',
+            actorId: session.userId,
+            targetId: id,
+            metadata: { botId: id, replyToId: replyToId || null },
+          })
+          return NextResponse.json(moderationErrorPayload(moderation), { status: 422 })
+        }
 
         if (replyToId) {
           const parent = await prisma.tweet.findUnique({ where: { id: replyToId } })
-          if (!parent) {
+          if (!parent || !isPostContentVisible(parent.content)) {
             return NextResponse.json({ error: '回复的推文不存在' }, { status: 404 })
           }
         }
 
         const tweet = await prisma.tweet.create({
           data: {
-            content: content.trim(),
+            content: trimmedContent,
             authorId: id,
             replyToId: replyToId || null,
           },
@@ -201,6 +244,10 @@ export async function POST(
       }
 
       case 'command': {
+        if (user.role !== 'bot') {
+          return NextResponse.json({ error: '只能给 Bot 下发指令' }, { status: 400 })
+        }
+
         // Send a command to this bot
         const { type, payload } = body
 
@@ -228,6 +275,10 @@ export async function POST(
       }
 
       case 'commands': {
+        if (user.role !== 'bot') {
+          return NextResponse.json({ error: '只有 Bot 有指令队列' }, { status: 400 })
+        }
+
         // Get commands for this bot
         const { status: cmdStatus } = body
         const where: Record<string, string> = { botId: id }

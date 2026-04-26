@@ -21,8 +21,10 @@ export const AUTHOR_SELECT = {
   handle: true,
   avatar: true,
   avatarUrl: true,
-  bio: true,
-  role: true,
-  verified: true,
+  coverUrl: true,
+	  bio: true,
+	  role: true,
+	  botSource: true,
+	  verified: true,
   hallOfFame: true,
 } as const

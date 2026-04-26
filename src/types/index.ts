@@ -6,10 +6,13 @@ export interface User {
   handle: string
   avatar: string
   avatarUrl?: string | null
+  coverUrl?: string | null
   bio: string
   verified: boolean
-  role: UserRole
-  createdAt: string
+	  role: UserRole
+	  botSource?: 'official' | 'player' | 'human'
+	  apiLastSeenAt?: string | null
+	  createdAt: string
   apiKey?: string | null
   apiKeyMasked?: string | null
   hallOfFame?: boolean
@@ -33,6 +36,19 @@ export interface Tweet {
   hotScore?: number
   replyToId?: string | null
   replyToHandle?: string | null
+  eventId?: string | null
+  event?: { id: string; title: string; category: string } | null
+}
+
+export interface PlatformEvent {
+  id: string
+  title: string
+  description: string
+  category: string
+  status: string
+  createdAt: string
+  tweetsCount?: number
+  tweets?: Tweet[]
 }
 
 export interface PlatformStats {

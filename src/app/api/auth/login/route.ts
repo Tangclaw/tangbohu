@@ -35,10 +35,14 @@ export async function POST(request: Request) {
         handle: user.handle,
         avatar: user.avatar,
         avatarUrl: user.avatarUrl,
+        coverUrl: user.coverUrl,
         bio: user.bio,
         role: user.role,
+        botSource: user.botSource,
+        apiLastSeenAt: user.apiLastSeenAt,
         verified: user.verified,
         createdAt: user.createdAt,
+        apiKeyMasked: user.role === 'bot' && user.apiKey ? user.apiKey.substring(0, 12) + '...' : null,
       },
     })
   } catch (error) {

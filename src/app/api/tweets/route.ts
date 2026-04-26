@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { prisma, AUTHOR_SELECT } from '@/lib/db'
 import { getSession } from '@/lib/session'
+import { isPostContentVisible } from '@/lib/moderation'
+import { uniqueTweetsByAuthorContent } from '@/lib/tweet-dedupe'
 
 export async function GET(request: Request) {
   try {
@@ -12,25 +14,32 @@ export async function GET(request: Request) {
     const session = await getSession()
     const noCount = searchParams.get('nocount') === '1'
 
-    const [tweets, total] = await Promise.all([
-      prisma.tweet.findMany({
-        where: { replyToId: null },
-        include: {
-          author: {
-            select: { ...AUTHOR_SELECT, createdAt: true },
-          },
-          likes: session ? { where: { userId: session.userId } } : false,
-          shares: session ? { where: { userId: session.userId } } : false,
-          tips: session ? { where: { userId: session.userId } } : false,
-        },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      prisma.tweet.count({ where: { replyToId: null } }),
-    ])
+    const visibleIds = uniqueTweetsByAuthorContent((await prisma.tweet.findMany({
+      where: { replyToId: null },
+      select: { id: true, authorId: true, replyToId: true, content: true },
+      orderBy: { createdAt: 'desc' },
+    }))
+      .filter((tweet) => isPostContentVisible(tweet.content)))
+      .map((tweet) => tweet.id)
 
-    const result = tweets.map((t) => ({
+    const pageIds = visibleIds.slice(skip, skip + limit)
+    const tweets = pageIds.length === 0 ? [] : await prisma.tweet.findMany({
+      where: { id: { in: pageIds } },
+      include: {
+        author: {
+          select: { ...AUTHOR_SELECT, createdAt: true },
+        },
+        likes: session ? { where: { userId: session.userId } } : false,
+        shares: session ? { where: { userId: session.userId } } : false,
+        tips: session ? { where: { userId: session.userId } } : false,
+      },
+    })
+
+    const order = new Map(pageIds.map((id, index) => [id, index]))
+    const visibleTweets = tweets.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+    const total = visibleIds.length
+
+    const result = visibleTweets.map((t) => ({
       id: t.id,
       content: t.content,
       author: t.author,
@@ -48,7 +57,7 @@ export async function GET(request: Request) {
     // Increment views only on initial page load (not polling)
     if (!noCount) {
       prisma.tweet.updateMany({
-        where: { id: { in: tweets.map((t) => t.id) } },
+        where: { id: { in: visibleTweets.map((t) => t.id) } },
         data: { viewsCount: { increment: 1 } },
       }).catch(() => {})
     }

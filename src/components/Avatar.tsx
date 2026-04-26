@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useState } from 'react'
 import { avatarGradients, avatarInitials } from '@/lib/utils'
 
@@ -14,11 +15,19 @@ interface AvatarProps {
 }
 
 const sizeClasses: Record<AvatarSize, string> = {
-  xs: 'h-5 w-5 text-[10px]',
-  sm: 'h-8 w-8 text-sm',
-  md: 'h-10 w-10 text-base',
-  lg: 'h-12 w-12 text-base',
-  xl: 'h-20 w-20 text-4xl',
+  xs: 'h-5 w-5 text-[9px] min-w-5 min-h-5',
+  sm: 'h-8 w-8 text-xs min-w-8 min-h-8',
+  md: 'h-10 w-10 text-sm min-w-10 min-h-10',
+  lg: 'h-12 w-12 text-base min-w-12 min-h-12',
+  xl: 'h-20 w-20 text-3xl min-w-20 min-h-20',
+}
+
+const sizePixels: Record<AvatarSize, number> = {
+  xs: 20,
+  sm: 32,
+  md: 40,
+  lg: 48,
+  xl: 80,
 }
 
 export default function Avatar({ user, size = 'md', shape, className = '', href }: AvatarProps) {
@@ -27,7 +36,7 @@ export default function Avatar({ user, size = 'md', shape, className = '', href 
   const initial = avatarInitials[user.avatar] || user.name[0]
   const sizeClass = sizeClasses[size]
   const resolvedShape = shape ?? (user.hallOfFame ? 'square' : 'circle')
-  const shapeClass = resolvedShape === 'square' ? 'rounded-lg' : 'rounded-full'
+  const shapeClass = resolvedShape === 'square' ? 'rounded-xl' : 'rounded-full'
 
   const showImage = user.avatarUrl && !imgError
 
@@ -35,15 +44,23 @@ export default function Avatar({ user, size = 'md', shape, className = '', href 
   const fallbackClasses = `flex items-center justify-center ${shapeClass} bg-gradient-to-br ${gradient} ${sizeClass} select-none ${className}`
 
   const inner = showImage ? (
-    <img src={user.avatarUrl!} alt={user.name} className={imgClasses} onError={() => setImgError(true)} />
+    <Image
+      src={user.avatarUrl!}
+      alt={user.name}
+      width={sizePixels[size]}
+      height={sizePixels[size]}
+      className={imgClasses}
+      unoptimized
+      onError={() => setImgError(true)}
+    />
   ) : (
     <div className={fallbackClasses} role="img" aria-label={user.name}>
-      <span className="font-black text-white drop-shadow-sm">{initial}</span>
+      <span className="font-black text-white drop-shadow-sm leading-none">{initial}</span>
     </div>
   )
 
   if (href) {
-    return <a href={href} aria-label={`${user.name} 的主页`}>{inner}</a>
+    return <a href={href} aria-label={`${user.name} 的主页`} className="block flex-shrink-0">{inner}</a>
   }
 
   return inner

@@ -1,31 +1,22 @@
-import { NextResponse } from 'next/server'
 import { prisma, AUTHOR_SELECT } from '@/lib/db'
+import { requireBotApiKey } from '@/lib/bot-auth'
+import { isPostContentVisible, logModerationBlock, moderatePostContent, moderationErrorPayload } from '@/lib/moderation'
+import { corsJson, corsPreflight } from '@/lib/cors'
 
 const MIN_POST_INTERVAL_MS = 60 * 1000       // 1 minute between posts
 const DAILY_POST_LIMIT = 50                    // 50 posts per day
 
+export async function OPTIONS(request: Request) {
+  return corsPreflight(request, 'POST, OPTIONS')
+}
+
 export async function POST(request: Request) {
   try {
-    const apiKey = request.headers.get('x-api-key')
-    if (!apiKey) {
-      return NextResponse.json({ error: '缺少 API Key (x-api-key header)' }, { status: 401 })
+    const auth = await requireBotApiKey(request)
+    if (auth.error) {
+      return corsJson({ error: auth.error }, { status: auth.status }, request, 'POST, OPTIONS')
     }
-
-    const bot = await prisma.user.findUnique({
-      where: { apiKey, role: 'bot' },
-      select: {
-        id: true, name: true, handle: true, avatar: true,
-            avatarUrl: true,
-        bio: true, role: true, verified: true, banned: true, createdAt: true,
-      },
-    })
-
-    if (!bot) {
-      return NextResponse.json({ error: '无效的 API Key' }, { status: 401 })
-    }
-    if (bot.banned) {
-      return NextResponse.json({ error: '该 Bot 已被封禁' }, { status: 403 })
-    }
+    const bot = auth.bot
 
     // Rate limit: check last post time
     const lastPost = await prisma.tweet.findFirst({
@@ -35,7 +26,18 @@ export async function POST(request: Request) {
     })
     if (lastPost && Date.now() - lastPost.createdAt.getTime() < MIN_POST_INTERVAL_MS) {
       const waitSec = Math.ceil((MIN_POST_INTERVAL_MS - (Date.now() - lastPost.createdAt.getTime())) / 1000)
-      return NextResponse.json({ error: `发帖太频繁，请等待 ${waitSec} 秒` }, { status: 429 })
+      return corsJson(
+        { error: `发帖太频繁，请等待 ${waitSec} 秒` },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(waitSec),
+            'X-RateLimit-Limit': String(DAILY_POST_LIMIT),
+          },
+        },
+        request,
+        'POST, OPTIONS'
+      )
     }
 
     // Rate limit: daily cap
@@ -45,31 +47,71 @@ export async function POST(request: Request) {
       where: { authorId: bot.id, createdAt: { gte: today } },
     })
     if (todayCount >= DAILY_POST_LIMIT) {
-      return NextResponse.json({ error: `每天最多发 ${DAILY_POST_LIMIT} 条推文` }, { status: 429 })
+      const resetAt = new Date(today)
+      resetAt.setDate(resetAt.getDate() + 1)
+      const retryAfter = Math.max(1, Math.ceil((resetAt.getTime() - Date.now()) / 1000))
+      return corsJson(
+        { error: `每天最多发 ${DAILY_POST_LIMIT} 条推文` },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(retryAfter),
+            'X-RateLimit-Limit': String(DAILY_POST_LIMIT),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': resetAt.toISOString(),
+          },
+        },
+        request,
+        'POST, OPTIONS'
+      )
     }
 
     const body = await request.json()
-    const { content, replyToId } = body
+    const { content, replyToId, eventId } = body
 
-    if (!content || content.trim().length === 0) {
-      return NextResponse.json({ error: '推文内容不能为空' }, { status: 400 })
+    if (typeof content !== 'string' || content.trim().length === 0) {
+      return corsJson({ error: '推文内容不能为空' }, { status: 400 }, request, 'POST, OPTIONS')
     }
     if (content.length > 280) {
-      return NextResponse.json({ error: '推文内容不能超过280个字符' }, { status: 400 })
+      return corsJson({ error: '推文内容不能超过280个字符' }, { status: 400 }, request, 'POST, OPTIONS')
+    }
+    const trimmedContent = content.trim()
+    const moderation = moderatePostContent(trimmedContent)
+    if (!moderation.allowed) {
+      await logModerationBlock({
+        content: trimmedContent,
+        result: moderation,
+        source: 'bot_api_post',
+        actorId: bot.id,
+        targetId: replyToId || eventId || null,
+        metadata: { replyToId: replyToId || null, eventId: eventId || null },
+      })
+      return corsJson(moderationErrorPayload(moderation), { status: 422 }, request, 'POST, OPTIONS')
     }
 
     if (replyToId) {
       const parent = await prisma.tweet.findUnique({ where: { id: replyToId } })
-      if (!parent) {
-        return NextResponse.json({ error: '回复的推文不存在' }, { status: 404 })
+      if (!parent || !isPostContentVisible(parent.content)) {
+        return corsJson({ error: '回复的推文不存在' }, { status: 404 }, request, 'POST, OPTIONS')
+      }
+    }
+
+    if (eventId) {
+      const event = await prisma.event.findUnique({
+        where: { id: eventId },
+        select: { id: true, status: true },
+      })
+      if (!event || event.status !== 'active') {
+        return corsJson({ error: '事件不存在或未开放' }, { status: 404 }, request, 'POST, OPTIONS')
       }
     }
 
     const tweet = await prisma.tweet.create({
       data: {
-        content: content.trim(),
+        content: trimmedContent,
         authorId: bot.id,
         replyToId: replyToId || null,
+        eventId: eventId || null,
       },
       include: {
         author: {
@@ -86,7 +128,10 @@ export async function POST(request: Request) {
       })
     }
 
-    return NextResponse.json({
+    const resetAt = new Date(today)
+    resetAt.setDate(resetAt.getDate() + 1)
+
+    return corsJson({
       tweet: {
         id: tweet.id,
         content: tweet.content,
@@ -96,10 +141,20 @@ export async function POST(request: Request) {
         retweetsCount: tweet.retweetsCount,
         repliesCount: tweet.repliesCount,
         viewsCount: tweet.viewsCount,
+        tipsCount: tweet.tipsCount,
+        replyToId: tweet.replyToId,
+        eventId: tweet.eventId,
       },
-    }, { status: 201 })
+    }, {
+      status: 201,
+      headers: {
+        'X-RateLimit-Limit': String(DAILY_POST_LIMIT),
+        'X-RateLimit-Remaining': String(Math.max(0, DAILY_POST_LIMIT - todayCount - 1)),
+        'X-RateLimit-Reset': resetAt.toISOString(),
+      },
+    }, request, 'POST, OPTIONS')
   } catch (error) {
     console.error('Bot post error:', error)
-    return NextResponse.json({ error: '发帖失败' }, { status: 500 })
+    return corsJson({ error: '发帖失败' }, { status: 500 }, request, 'POST, OPTIONS')
   }
 }
