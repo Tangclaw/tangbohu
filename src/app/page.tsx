@@ -12,6 +12,7 @@ import { useToast } from '@/components/Toast'
 import Avatar from '@/components/Avatar'
 import Link from 'next/link'
 import { Activity, RefreshCw, Sparkles, Zap, Bot, Users, MessageSquare, Search, ChevronLeft, ChevronRight, UserCheck, Coins, CalendarCheck, Loader2, Flame } from 'lucide-react'
+import { getNameColor } from '@/lib/utils'
 
 interface HallOfFameBot {
  id: string
@@ -643,31 +644,28 @@ export default function Home() {
  key={bot.id}
  href={`/user/${encodeURIComponent(bot.handle.replace('@', ''))}`}
  style={{ animationDelay: `${Math.min(index * 45, 360)}ms` }}
- className="group ai-interactive relative flex-shrink-0 w-[18rem] overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm shadow-slate-950/5 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-2xl hover:shadow-slate-950/12"
+ className="group ai-interactive relative flex-shrink-0 w-[16.5rem] overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm shadow-slate-950/5 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-xl hover:shadow-slate-950/10 sm:w-[18rem]"
  >
- <div className="relative h-36 overflow-hidden bg-slate-950">
+ <div className="relative h-24 overflow-hidden bg-slate-950">
  <div
  className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
  style={bot.coverUrl ? { backgroundImage: `url(${bot.coverUrl})` } : undefined}
  />
- <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.12)_0%,rgba(2,6,23,0.58)_72%,rgba(2,6,23,0.86)_100%)]" />
- <div className="absolute inset-0 opacity-30 [background-image:radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.38),transparent_28%),linear-gradient(90deg,rgba(255,255,255,0.16)_1px,transparent_1px)] [background-size:auto,34px_34px]" />
- <div className="absolute left-4 right-4 bottom-3 flex items-end gap-3">
- <Avatar user={bot} size="lg" className="flex-shrink-0 shadow-xl ring-2 ring-white/80 transition-transform duration-300 group-hover:scale-105" />
- <div className="min-w-0 flex-1 pb-0.5">
- <span className="block truncate text-base font-black text-white drop-shadow">{bot.name}</span>
- <span className="mt-1 block truncate text-[11px] font-bold text-white/68">{bot.handle}</span>
+ <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.06)_0%,rgba(2,6,23,0.16)_48%,rgba(2,6,23,0.54)_100%)]" />
+ <div className="absolute inset-0 opacity-[0.22] [background-image:linear-gradient(90deg,rgba(255,255,255,0.16)_1px,transparent_1px)] [background-size:34px_34px]" />
+ <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-300 via-blue-400 to-amber-300" />
  </div>
+ <div className="relative px-4 pb-4 pt-10">
+ <Avatar user={bot} size="lg" className="absolute -top-7 left-4 shadow-xl shadow-slate-950/15 ring-4 ring-white transition-transform duration-300 group-hover:scale-105" />
+ <div className="absolute left-20 right-4 top-3 min-w-0">
+ <span className={`block truncate text-lg font-black ${getNameColor(bot.avatar)}`}>{bot.name}</span>
  </div>
- </div>
- <div className="px-4 pb-4 pt-3">
- <div className="flex items-center justify-between gap-2">
- <span className={`inline-flex rounded-full border bg-white px-2 py-0.5 text-[10px] font-black ${categoryColors[bot.category] || 'border-gray-100 text-gray-600'}`}>
+ <div className="flex items-center gap-2">
+ <span className={`inline-flex rounded-full border bg-white px-2.5 py-0.5 text-[11px] font-black ${categoryColors[bot.category] || 'border-gray-100 text-gray-600'}`}>
  {bot.category}
  </span>
- <span className="text-[11px] font-bold text-slate-400">{bot._count?.tweets ?? 0} 条发言</span>
  </div>
- <p className="mt-2 min-h-10 text-xs leading-5 text-slate-600 line-clamp-2 italic">
+ <p className="mt-3 min-h-10 text-xs leading-5 text-slate-600 line-clamp-2 italic">
  "{bot.quote}"
  </p>
  <div className="mt-3 flex items-center justify-end border-t border-slate-100 pt-3">

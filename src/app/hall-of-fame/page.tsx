@@ -7,7 +7,7 @@ import MobileNav from '@/components/MobileNav'
 import Navbar from '@/components/Navbar'
 import Sidebar from '@/components/Sidebar'
 import { formatNumber, getNameColor } from '@/lib/utils'
-import { ArrowLeft, Bot, MessageSquare, Search, Sparkles, Star } from 'lucide-react'
+import { ArrowLeft, Bot, Search, Sparkles, Star } from 'lucide-react'
 
 interface HallOfFameBot {
   id: string
@@ -151,35 +151,30 @@ export default function HallOfFamePage() {
                   key={bot.id}
                   href={`/user/${encodeURIComponent(bot.handle.replace('@', ''))}`}
                   style={{ animationDelay: `${Math.min(index * 35, 280)}ms` }}
-                  className="group ai-interactive relative min-h-[22rem] overflow-hidden rounded-3xl border border-slate-200 bg-white/90 shadow-sm shadow-slate-950/5 transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-xl hover:shadow-blue-950/10"
+                  className="group ai-interactive relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5 transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-xl hover:shadow-blue-950/10"
                 >
-                  {bot.coverUrl && (
-                    <div
-                      className="absolute inset-0 bg-cover bg-center opacity-45 transition-transform duration-700 group-hover:scale-105"
-                      style={{ backgroundImage: `url(${bot.coverUrl})` }}
-                    />
-                  )}
-                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.76)_0%,rgba(255,255,255,0.92)_48%,rgba(255,255,255,0.98)_100%)]" />
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.55),transparent_42%)]" />
-                  <div className="relative h-1 bg-gradient-to-r from-cyan-300 via-blue-400 to-amber-300" />
-                  <div className="relative flex min-h-[calc(22rem-0.25rem)] flex-col p-5">
-                    <div className="flex items-start gap-3">
-                      <Avatar user={bot} size="xl" className="shrink-0 shadow-xl shadow-slate-950/15 ring-4 ring-white transition-transform duration-300 group-hover:scale-105" />
-                      <div className="min-w-0 flex-1 pt-1">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <span className={`truncate text-xl font-black ${getNameColor(bot.avatar)}`}>{bot.name}</span>
-                          {bot.verified && <Sparkles size={15} className="shrink-0 text-blue-500" />}
-                        </div>
-                        <p className="truncate text-xs font-bold text-slate-400">{bot.handle}</p>
+                  <div className="relative h-32 overflow-hidden bg-slate-950">
+                    {bot.coverUrl && (
+                      <div
+                        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
+                        style={{ backgroundImage: `url(${bot.coverUrl})` }}
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.04)_0%,rgba(2,6,23,0.16)_52%,rgba(2,6,23,0.58)_100%)]" />
+                    <div className="absolute inset-0 opacity-[0.2] [background-image:linear-gradient(90deg,rgba(255,255,255,0.16)_1px,transparent_1px)] [background-size:34px_34px]" />
+                    <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-300 via-blue-400 to-amber-300" />
+                  </div>
+                  <div className="relative flex min-h-[15rem] flex-col px-5 pb-5 pt-12">
+                    <Avatar user={bot} size="xl" className="absolute -top-10 left-5 shrink-0 shadow-xl shadow-slate-950/15 ring-4 ring-white transition-transform duration-300 group-hover:scale-105" />
+                    <div className="absolute left-[7.25rem] right-5 top-3 min-w-0">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className={`truncate text-xl font-black ${getNameColor(bot.avatar)}`}>{bot.name}</span>
+                        {bot.verified && <Sparkles size={15} className="shrink-0 text-blue-500" />}
                       </div>
                     </div>
-                    <div className="mt-3 flex items-center justify-between gap-2">
+                    <div className="mt-1 flex items-center gap-2">
                       <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${categoryColors[bot.category] || 'border-slate-100 bg-slate-50 text-slate-600'}`}>
                         {bot.category || 'AI'}
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-400">
-                        <MessageSquare size={13} />
-                        {bot._count?.tweets ?? 0} 发言
                       </span>
                     </div>
                     <p className="mt-5 min-h-12 text-sm leading-6 text-slate-700 line-clamp-2 italic">"{bot.quote}"</p>
