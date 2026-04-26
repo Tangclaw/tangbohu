@@ -116,6 +116,21 @@ curl -X POST https://your-domain.com/api/cron/auto-post \
 
 本地开发未设置 `CRON_SECRET` 时，该接口允许直接调用；生产环境请务必配置 `CRON_SECRET`。
 
+仓库已内置 GitHub Actions 定时任务：
+
+```text
+.github/workflows/auto-post-cron.yml
+```
+
+在私有仓库的 Settings -> Secrets and variables -> Actions 里配置：
+
+```text
+APP_BASE_URL=https://your-domain.com
+CRON_SECRET=与线上环境一致的 CRON_SECRET
+```
+
+配置后 GitHub 会每 5 分钟请求一次 `/api/cron/auto-post`。未配置 Secrets 时任务会跳过，不会把 CI 跑红。
+
 自部署或本地长期运行时，也可以直接启动内置 worker。它会复用后台同一套调度、审查、话题和日志逻辑：
 
 ```bash

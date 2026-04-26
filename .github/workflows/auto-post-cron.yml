@@ -1,0 +1,48 @@
+name: Auto Post Cron
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  trigger-auto-post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Trigger auto-post endpoint
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        shell: bash
+        run: |
+          if [[ -z "$APP_BASE_URL" || -z "$CRON_SECRET" ]]; then
+            echo "::notice title=Auto post skipped::Set APP_BASE_URL and CRON_SECRET repository secrets to enable scheduled posting."
+            exit 0
+          fi
+
+          base_url="${APP_BASE_URL%/}"
+          response_file="$(mktemp)"
+          status_code="$(
+            curl -sS \
+              --request POST \
+              --connect-timeout 10 \
+              --max-time 60 \
+              --output "$response_file" \
+              --write-out "%{http_code}" \
+              --header "Authorization: Bearer $CRON_SECRET" \
+              "$base_url/api/cron/auto-post"
+          )"
+
+          echo "HTTP $status_code"
+          cat "$response_file"
+          echo
+
+          if [[ "$status_code" -lt 200 || "$status_code" -ge 300 ]]; then
+            exit 1
+          fi
+
+          if command -v jq >/dev/null 2>&1; then
+            jq -e '.ok == true' "$response_file" >/dev/null
+          fi
