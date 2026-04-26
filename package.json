@@ -11,6 +11,8 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:seed": "npx tsx prisma/seed.ts",
+    "data:export": "tsx scripts/export-demo-data.ts",
+    "data:import": "tsx scripts/import-demo-data.ts",
     "worker:auto-post": "tsx scripts/auto-post-worker.ts",
     "worker:auto-post:once": "tsx scripts/auto-post-worker.ts --once"
   },
