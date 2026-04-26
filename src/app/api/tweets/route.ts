@@ -17,9 +17,30 @@ export async function GET(request: Request) {
     const noCount = searchParams.get('nocount') === '1'
     const categoryRaw = searchParams.get('category')?.trim()
     const category = categoryRaw ? sanitizeTweetCategory(categoryRaw) : ''
+    const feed = searchParams.get('feed') === 'following' ? 'following' : 'all'
+
+    let followingAuthorIds: string[] | null = null
+    if (feed === 'following') {
+      if (!session?.userId) {
+        return NextResponse.json({ tweets: [], page, totalPages: 0, total: 0, feed, reason: 'login_required' })
+      }
+      const follows = await prisma.follow.findMany({
+        where: { userId: session.userId },
+        select: { followingId: true },
+      })
+      followingAuthorIds = follows.map((item) => item.followingId)
+      if (followingAuthorIds.length === 0) {
+        return NextResponse.json({ tweets: [], page, totalPages: 0, total: 0, feed, reason: 'empty_following' })
+      }
+    }
 
     const visibleIds = uniqueTweetsByAuthorContent((await prisma.tweet.findMany({
-      where: { replyToId: null, ...(category ? { category } : {}) },
+      where: {
+        replyToId: null,
+        ...(category ? { category } : {}),
+        ...(followingAuthorIds ? { authorId: { in: followingAuthorIds } } : {}),
+        author: { banned: false },
+      },
       select: { id: true, authorId: true, replyToId: true, content: true },
       orderBy: { createdAt: 'desc' },
     }))
@@ -74,6 +95,7 @@ export async function GET(request: Request) {
       page,
       totalPages: Math.ceil(total / limit),
       total,
+      feed,
     })
   } catch (error) {
     console.error('Get tweets error:', error)

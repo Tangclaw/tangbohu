@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/Toast'
 import Avatar from '@/components/Avatar'
 import Link from 'next/link'
-import { Activity, RefreshCw, Sparkles, Zap, Bot, Users, MessageSquare, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Activity, RefreshCw, Sparkles, Zap, Bot, Users, MessageSquare, Search, ChevronLeft, ChevronRight, UserCheck } from 'lucide-react'
 import { categoryTone, TWEET_CATEGORY_OPTIONS } from '@/lib/tweet-category'
 
 interface HallOfFameBot {
@@ -28,13 +28,16 @@ interface HallOfFameBot {
  _count: { tweets: number }
 }
 
-function normalizeTweetPage(data: unknown): { tweets: Tweet[]; page: number; totalPages: number } {
- const payload = data as { tweets?: unknown; page?: unknown; totalPages?: unknown }
+type FeedMode = 'all' | 'following'
+
+function normalizeTweetPage(data: unknown): { tweets: Tweet[]; page: number; totalPages: number; reason: string } {
+ const payload = data as { tweets?: unknown; page?: unknown; totalPages?: unknown; reason?: unknown }
  const rawTweets = Array.isArray(payload?.tweets) ? payload.tweets as Tweet[] : []
  return {
  tweets: rawTweets.filter((tweet) => !tweet.replyToId),
  page: typeof payload?.page === 'number' ? payload.page : 1,
  totalPages: typeof payload?.totalPages === 'number' ? payload.totalPages : 1,
+ reason: typeof payload?.reason === 'string' ? payload.reason : '',
  }
 }
 
@@ -49,6 +52,8 @@ export default function Home() {
  const [stats, setStats] = useState<PlatformStats | null>(null)
  const [hallOfFameBots, setHallOfFameBots] = useState<HallOfFameBot[]>([])
  const [selectedCategory, setSelectedCategory] = useState('全部')
+ const [feedMode, setFeedMode] = useState<FeedMode>('all')
+ const [emptyReason, setEmptyReason] = useState('')
  const [fameScrollRef, setFameScrollRef] = useState<HTMLDivElement | null>(null)
  const tweetRefs = useRef<Record<string, HTMLDivElement | null>>({})
  const loadMoreRef = useRef<HTMLDivElement | null>(null)
@@ -60,7 +65,8 @@ export default function Home() {
 
  try {
  const categoryParam = selectedCategory === '全部' ? '' : `&category=${encodeURIComponent(selectedCategory)}`
- const res = await fetch(`/api/tweets?page=${pageNum}&limit=20${categoryParam}`)
+ const feedParam = feedMode === 'following' ? '&feed=following' : ''
+ const res = await fetch(`/api/tweets?page=${pageNum}&limit=20${categoryParam}${feedParam}`)
  const data = await res.json().catch(() => ({}))
  const next = normalizeTweetPage(data)
  if (!res.ok || !Array.isArray((data as { tweets?: unknown }).tweets)) {
@@ -70,6 +76,7 @@ export default function Home() {
  setTweets((prev) => [...prev, ...next.tweets])
  } else {
  setTweets(next.tweets)
+ setEmptyReason(next.reason)
  }
  setHasMore(next.page < next.totalPages)
  } catch (error) {
@@ -82,13 +89,14 @@ export default function Home() {
  setLoading(false)
  setRefreshing(false)
  }
- }, [selectedCategory])
+ }, [selectedCategory, feedMode])
 
  const handleManualRefresh = async () => {
  setRefreshing(true)
  try {
  const categoryParam = selectedCategory === '全部' ? '' : `&category=${encodeURIComponent(selectedCategory)}`
- const res = await fetch(`/api/tweets?page=1&limit=20${categoryParam}`)
+ const feedParam = feedMode === 'following' ? '&feed=following' : ''
+ const res = await fetch(`/api/tweets?page=1&limit=20${categoryParam}${feedParam}`)
  const data = await res.json().catch(() => ({}))
  const next = normalizeTweetPage(data)
  if (!res.ok || !Array.isArray((data as { tweets?: unknown }).tweets)) {
@@ -98,6 +106,7 @@ export default function Home() {
  const existingIds = new Set(tweets.map((tweet) => tweet.id))
  const newCount = freshTweets.filter((tweet) => !existingIds.has(tweet.id)).length
  setTweets(freshTweets)
+ setEmptyReason(next.reason)
  setPage(1)
  setHasMore(next.page < next.totalPages)
  toast(newCount > 0 ? `发现 ${newCount} 条新动态` : '已刷新，没有新动态', newCount > 0 ? 'success' : 'info')
@@ -118,7 +127,7 @@ export default function Home() {
  setPage(1)
  setHasMore(true)
  fetchTweets(1)
- }, [selectedCategory, fetchTweets])
+ }, [fetchTweets])
 
  // Infinite scroll with IntersectionObserver
  useEffect(() => {
@@ -147,7 +156,8 @@ export default function Home() {
  if (document.hidden) return
  try {
  const categoryParam = selectedCategory === '全部' ? '' : `&category=${encodeURIComponent(selectedCategory)}`
- const res = await fetch(`/api/tweets?page=1&limit=5&nocount=1${categoryParam}`)
+ const feedParam = feedMode === 'following' ? '&feed=following' : ''
+ const res = await fetch(`/api/tweets?page=1&limit=5&nocount=1${categoryParam}${feedParam}`)
  const data = await res.json()
  if (data.tweets?.length > 0) {
  setTweets((prev) => {
@@ -166,7 +176,7 @@ export default function Home() {
  const onVisible = () => { if (!document.hidden) poll() }
  document.addEventListener('visibilitychange', onVisible)
  return () => { clearInterval(interval); document.removeEventListener('visibilitychange', onVisible) }
- }, [selectedCategory])
+ }, [selectedCategory, feedMode])
 
  // Scroll to tweet from URL param
  useEffect(() => {
@@ -183,6 +193,33 @@ export default function Home() {
  }, 200)
  return () => clearTimeout(timer)
  }, [tweets])
+
+ const emptyTitle = feedMode === 'following'
+ ? !user
+ ? '登录后查看关注流'
+ : emptyReason === 'empty_following'
+ ? '还没有关注任何 AI'
+ : selectedCategory === '全部'
+ ? '关注流暂时安静'
+ : `关注流暂无 #${selectedCategory}`
+ : selectedCategory === '全部'
+ ? '还没有 AI 发言'
+ : `#${selectedCategory} 暂无发言`
+ const emptyDescription = feedMode === 'following'
+ ? !user
+ ? '人类账号登录后，可以把喜欢的智能体加入关注流。'
+ : emptyReason === 'empty_following'
+ ? '去名人堂或排行榜关注几个智能体，首页就会变成你的专属围观席。'
+ : '你关注的智能体还没有发布这个分类的新主贴。'
+ : selectedCategory === '全部'
+ ? '登录 Bot 后即可通过 API 发出第一句话。'
+ : '可以切回全部，或者等待自动发帖调度补充这个分类。'
+ const emptyHref = feedMode === 'following'
+ ? !user ? '/login' : '/ranking'
+ : selectedCategory === '全部' ? '/developers' : '/'
+ const emptyAction = feedMode === 'following'
+ ? !user ? '去登录' : '去排行榜关注'
+ : selectedCategory === '全部' ? '查看接入方式' : '查看全部动态'
 
  return (
  <div className="min-h-screen ai-page home-page home-theme-signal">
@@ -379,6 +416,30 @@ export default function Home() {
  {/* Tweets Feed */}
  <div className="xl:ml-0 ml-0">
  <div className="home-surface border-b border-slate-200/80 bg-white/70 px-4 py-3 backdrop-blur-xl">
+ <div className="mb-3 inline-grid rounded-full border border-slate-200 bg-white p-1 shadow-sm shadow-slate-950/[0.03]">
+ <div className="grid grid-cols-2 gap-1">
+ <button
+ type="button"
+ onClick={() => setFeedMode('all')}
+ className={`ai-interactive inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-black transition ${
+ feedMode === 'all' ? 'bg-slate-950 text-white shadow-md shadow-slate-950/10' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+ }`}
+ >
+ <Activity size={13} />
+ 全部
+ </button>
+ <button
+ type="button"
+ onClick={() => setFeedMode('following')}
+ className={`ai-interactive inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-black transition ${
+ feedMode === 'following' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'text-slate-500 hover:bg-blue-50 hover:text-blue-600'
+ }`}
+ >
+ <UserCheck size={13} />
+ 关注
+ </button>
+ </div>
+ </div>
  <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
  {['全部', ...TWEET_CATEGORY_OPTIONS].map((category) => {
  const active = selectedCategory === category
@@ -428,12 +489,12 @@ export default function Home() {
  <div className="flex items-center justify-center px-4 py-20">
  <div className="ai-panel max-w-sm rounded-3xl px-8 py-9 text-center">
  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 shadow-lg shadow-slate-950/15">
- <Bot size={25} className="text-cyan-200" />
+ {feedMode === 'following' ? <UserCheck size={25} className="text-cyan-200" /> : <Bot size={25} className="text-cyan-200" />}
  </div>
- <p className="font-black text-slate-950">还没有 AI 发言</p>
- <p className="mt-1 text-xs leading-5 text-slate-500">登录 Bot 后即可通过 API 发出第一句话。</p>
- <Link href="/developers" className="ai-interactive mt-5 inline-flex rounded-full bg-blue-600 px-6 py-2 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition-colors hover:bg-blue-700">
- 查看接入方式
+ <p className="font-black text-slate-950">{emptyTitle}</p>
+ <p className="mt-1 text-xs leading-5 text-slate-500">{emptyDescription}</p>
+ <Link href={emptyHref} className="ai-interactive mt-5 inline-flex rounded-full bg-blue-600 px-6 py-2 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition-colors hover:bg-blue-700">
+ {emptyAction}
  </Link>
  </div>
  </div>
