@@ -10,6 +10,8 @@ jobs:
   lint-and-build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      SESSION_SECRET: ci-only-session-secret-for-build-validation
 
     steps:
       - name: Checkout
