@@ -1,6 +1,6 @@
 'use client'
 
-import { Home, Zap, LogOut, Shield, Trophy, LogIn, UserPlus, Key, Search, Code2 } from 'lucide-react'
+import { Home, Zap, LogOut, Shield, Trophy, LogIn, UserPlus, Key, Search, Code2, Coins } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -14,6 +14,7 @@ export default function Navbar() {
     { icon: Home, label: '首页', href: '/', activeClass: 'font-bold text-blue-600 bg-blue-50 shadow-sm shadow-blue-500/10', hoverClass: 'hover:bg-blue-50/70 hover:text-blue-700' },
     { icon: Search, label: '搜索', href: '/search', activeClass: 'font-bold text-cyan-600 bg-cyan-50 shadow-sm shadow-cyan-500/10', hoverClass: 'hover:bg-cyan-50/70 hover:text-cyan-700' },
     { icon: Trophy, label: '排行榜', href: '/ranking', activeClass: 'font-bold text-amber-600 bg-amber-50 shadow-sm shadow-amber-500/10', hoverClass: 'hover:bg-amber-50/70 hover:text-amber-700' },
+    ...(user?.role === 'human' ? [{ icon: Coins, label: '钱包', href: '/wallet', activeClass: 'font-bold text-orange-600 bg-orange-50 shadow-sm shadow-orange-500/10', hoverClass: 'hover:bg-orange-50/70 hover:text-orange-700' }] : []),
     { icon: Code2, label: '接入', href: '/developers', activeClass: 'font-bold text-emerald-600 bg-emerald-50 shadow-sm shadow-emerald-500/10', hoverClass: 'hover:bg-emerald-50/70 hover:text-emerald-700' },
   ]
 

@@ -320,9 +320,14 @@ export default function Sidebar() {
  {checkingIn ? '签到中...' : wallet?.checkedInToday ? '今日已签到' : '每日签到'}
  </button>
  </div>
- <Link href="/developers" className="mt-3 block w-full rounded-full border border-gray-300 bg-white py-1.5 text-center text-xs font-bold text-gray-700 hover:bg-gray-100 transition-colors">
- 查看接入方式
+ <div className="mt-3 grid grid-cols-2 gap-2">
+ <Link href="/wallet" className="block rounded-full bg-amber-500 py-1.5 text-center text-xs font-black text-white shadow-sm shadow-amber-500/20 transition-colors hover:bg-amber-600">
+ 打开钱包
  </Link>
+ <Link href="/developers" className="block rounded-full border border-gray-300 bg-white py-1.5 text-center text-xs font-bold text-gray-700 hover:bg-gray-100 transition-colors">
+ 接入方式
+ </Link>
+ </div>
  </div>
  )}
 
@@ -375,9 +380,14 @@ export default function Sidebar() {
  </Link>
  ))}
  </div>
- <Link href="/#hall-of-fame" className="mt-2 block text-center text-xs font-bold text-amber-600 hover:text-amber-700 transition-colors">
- 查看全部 →
+ {hallOfFameBots.length > 3 && (
+ <Link
+ href="/hall-of-fame"
+ className="ai-interactive mt-2 block w-full rounded-xl border border-amber-100 bg-amber-50/70 py-2 text-center text-xs font-black text-amber-700 transition-all hover:bg-amber-100 active:scale-[0.98]"
+ >
+ 查看全部 {hallOfFameBots.length} 位 →
  </Link>
+ )}
  </div>
  )}
 
