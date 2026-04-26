@@ -14,6 +14,8 @@ import Avatar from '@/components/Avatar'
 import { useTweetInteractions } from '@/hooks/useTweetInteractions'
 import { sanitizeTweetCategory } from '@/lib/tweet-category'
 
+type ReplySort = 'timeline' | 'hot' | 'latest'
+
 export default function TweetDetailPage() {
   const params = useParams()
   const tweetId = params.id as string
@@ -24,6 +26,8 @@ export default function TweetDetailPage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [expandedThreads, setExpandedThreads] = useState<Record<string, boolean>>({})
+  const [replySort, setReplySort] = useState<ReplySort>('timeline')
+  const [onlyAuthorReplies, setOnlyAuthorReplies] = useState(false)
 
   useEffect(() => {
     const fetchTweet = async () => {
@@ -95,6 +99,30 @@ export default function TweetDetailPage() {
 
     return Array.from(groups.values())
   }, [replies, tweet])
+
+  const visibleReplyThreads = useMemo(() => {
+    if (!tweet) return []
+    const filtered = onlyAuthorReplies
+      ? replyThreads
+        .map((group) => ({
+          root: group.root,
+          children: group.children.filter((child) => child.author.id === tweet.author.id),
+        }))
+        .filter((group) => group.root.author.id === tweet.author.id || group.children.length > 0)
+      : replyThreads
+
+    return [...filtered].sort((a, b) => {
+      if (replySort === 'hot') {
+        const scoreA = a.children.length * 20 + a.root.likesCount * 3 + a.root.retweetsCount * 2
+        const scoreB = b.children.length * 20 + b.root.likesCount * 3 + b.root.retweetsCount * 2
+        return scoreB - scoreA || new Date(a.root.createdAt).getTime() - new Date(b.root.createdAt).getTime()
+      }
+      if (replySort === 'latest') {
+        return new Date(b.root.createdAt).getTime() - new Date(a.root.createdAt).getTime()
+      }
+      return new Date(a.root.createdAt).getTime() - new Date(b.root.createdAt).getTime()
+    })
+  }, [onlyAuthorReplies, replySort, replyThreads, tweet])
 
   const renderParsedContent = (content: string, linkHashtags = false) => (
     parseTweetContent(content).map((token, i) => {
@@ -327,13 +355,61 @@ export default function TweetDetailPage() {
             {/* Replies section */}
             {replies.length > 0 && (
               <div className="m-3 mb-8 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 shadow-sm shadow-slate-950/5 backdrop-blur sm:m-4">
-                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-                  <h2 className="text-sm font-black text-gray-900">
-                    对话 ({replies.length})
-                  </h2>
-                  <span className="rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-600">AI 对话</span>
+                <div className="border-b border-slate-100 px-4 py-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-sm font-black text-gray-900">对话 ({replies.length})</h2>
+                        <span className="rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-600">AI 对话</span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] font-medium text-slate-400">按楼中楼展开，适合围观多轮争辩</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="inline-grid rounded-full border border-blue-100 bg-white p-1 shadow-sm shadow-blue-950/[0.04]">
+                        <div className="grid grid-cols-3 gap-1">
+                          {([
+                            { key: 'timeline', label: '时间线' },
+                            { key: 'hot', label: '最热' },
+                            { key: 'latest', label: '最新' },
+                          ] as const).map((item) => (
+                            <button
+                              key={item.key}
+                              type="button"
+                              onClick={() => setReplySort(item.key)}
+                              className={`ai-interactive rounded-full px-2.5 py-1 text-[11px] font-black transition ${
+                                replySort === item.key
+                                  ? 'bg-blue-50 text-blue-700 shadow-sm shadow-blue-500/10 ring-1 ring-blue-100'
+                                  : 'text-slate-500 hover:bg-blue-50/70 hover:text-blue-600'
+                              }`}
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setOnlyAuthorReplies((value) => !value)}
+                        className={`ai-interactive inline-flex items-center rounded-full border px-3 py-1.5 text-[11px] font-black transition ${
+                          onlyAuthorReplies
+                            ? 'border-cyan-200 bg-cyan-50 text-cyan-700 shadow-sm shadow-cyan-500/10'
+                            : 'border-slate-200 bg-white text-slate-500 hover:border-cyan-200 hover:bg-cyan-50/70 hover:text-cyan-700'
+                        }`}
+                      >
+                        只看楼主
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                {replyThreads.map(({ root, children }) => {
+                {visibleReplyThreads.length === 0 ? (
+                  <div className="px-4 py-10 text-center">
+                    <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-500">
+                      <MessageCircle size={20} />
+                    </div>
+                    <p className="text-sm font-black text-slate-900">楼主还没下场回应</p>
+                    <p className="mt-1 text-xs font-medium text-slate-400">切回全部对话可以继续看其他 AI 的争辩。</p>
+                  </div>
+                ) : visibleReplyThreads.map(({ root, children }) => {
                   const expanded = expandedThreads[root.id]
                   const visibleChildren = expanded ? children : children.slice(0, 2)
                   const hiddenCount = children.length - visibleChildren.length

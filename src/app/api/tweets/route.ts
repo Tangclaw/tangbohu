@@ -6,6 +6,18 @@ import { uniqueTweetsByAuthorContent } from '@/lib/tweet-dedupe'
 import { getReplyPreviewMap } from '@/lib/reply-preview'
 import { sanitizeTweetCategory } from '@/lib/tweet-category'
 
+type FeedSort = 'latest' | 'hot' | 'debate'
+
+function resolveFeedSort(sort: string | null): FeedSort {
+  if (sort === 'hot' || sort === 'debate') return sort
+  return 'latest'
+}
+
+function freshnessWeight(createdAt: Date) {
+  const ageHours = Math.max(1, (Date.now() - createdAt.getTime()) / 36e5)
+  return Math.pow(ageHours + 2, 1.08)
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -19,6 +31,7 @@ export async function GET(request: Request) {
     const category = categoryRaw ? sanitizeTweetCategory(categoryRaw) : ''
     const topicId = searchParams.get('topicId')?.trim() || ''
     const feed = searchParams.get('feed') === 'following' ? 'following' : 'all'
+    const sort = resolveFeedSort(searchParams.get('sort'))
 
     let followingAuthorIds: string[] | null = null
     if (feed === 'following') {
@@ -35,7 +48,7 @@ export async function GET(request: Request) {
       }
     }
 
-    const visibleIds = uniqueTweetsByAuthorContent((await prisma.tweet.findMany({
+    const rootTweets = uniqueTweetsByAuthorContent((await prisma.tweet.findMany({
       where: {
         replyToId: null,
         ...(topicId ? { topicId } : {}),
@@ -43,10 +56,36 @@ export async function GET(request: Request) {
         ...(followingAuthorIds ? { authorId: { in: followingAuthorIds } } : {}),
         author: { banned: false },
       },
-      select: { id: true, authorId: true, replyToId: true, content: true },
+      select: {
+        id: true,
+        authorId: true,
+        replyToId: true,
+        content: true,
+        createdAt: true,
+        likesCount: true,
+        retweetsCount: true,
+        repliesCount: true,
+        viewsCount: true,
+        tipsCount: true,
+      },
       orderBy: { createdAt: 'desc' },
     }))
       .filter((tweet) => isPostContentVisible(tweet.content)))
+
+    const visibleIds = rootTweets
+      .sort((a, b) => {
+        if (sort === 'hot') {
+          const scoreA = (a.likesCount * 3 + a.retweetsCount * 5 + a.repliesCount * 4 + a.tipsCount * 12 + a.viewsCount / 120) / freshnessWeight(a.createdAt)
+          const scoreB = (b.likesCount * 3 + b.retweetsCount * 5 + b.repliesCount * 4 + b.tipsCount * 12 + b.viewsCount / 120) / freshnessWeight(b.createdAt)
+          return scoreB - scoreA || b.createdAt.getTime() - a.createdAt.getTime()
+        }
+        if (sort === 'debate') {
+          const scoreA = (a.repliesCount > 0 ? 100000 : 0) + a.repliesCount * 1000 + a.retweetsCount * 3 + a.likesCount * 0.5 + a.tipsCount * 5
+          const scoreB = (b.repliesCount > 0 ? 100000 : 0) + b.repliesCount * 1000 + b.retweetsCount * 3 + b.likesCount * 0.5 + b.tipsCount * 5
+          return scoreB - scoreA || b.createdAt.getTime() - a.createdAt.getTime()
+        }
+        return b.createdAt.getTime() - a.createdAt.getTime()
+      })
       .map((tweet) => tweet.id)
 
     const pageIds = visibleIds.slice(skip, skip + limit)
@@ -99,6 +138,7 @@ export async function GET(request: Request) {
       totalPages: Math.ceil(total / limit),
       total,
       feed,
+      sort,
     })
   } catch (error) {
     console.error('Get tweets error:', error)
