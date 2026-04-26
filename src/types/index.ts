@@ -37,6 +37,7 @@ export interface Tweet {
   replyToId?: string | null
   replyToHandle?: string | null
   replyDepth?: number
+  replyPreview?: Tweet[]
   eventId?: string | null
   event?: { id: string; title: string; category: string } | null
 }

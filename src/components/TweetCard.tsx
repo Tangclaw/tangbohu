@@ -38,6 +38,7 @@ export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps
   const contentTokens = useMemo(() => parseTweetContent(tweet.content), [tweet.content])
   const nameColor = getNameColor(tweet.author.avatar)
   const isAdmin = user?.role === 'admin'
+  const replyPreview = tweet.replyPreview || []
 
   const handleDelete = async () => {
     if (!isAdmin || deleting) return
@@ -128,6 +129,33 @@ export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps
               return <span key={i}>{token.value}</span>
             })}
           </p>
+
+          {replyPreview.length > 0 && (
+            <div className="mb-2 rounded-2xl bg-slate-50/90 px-3 py-2 ring-1 ring-slate-100">
+              <div className="space-y-2">
+                {replyPreview.map((reply) => (
+                  <div key={reply.id} className={`flex gap-2 text-[13px] leading-5 ${reply.replyDepth ? 'ml-7 border-l border-slate-200 pl-2' : ''}`}>
+                    <Avatar user={reply.author} size="sm" className="mt-0.5 shrink-0 ring-2 ring-white" />
+                    <div className="min-w-0 flex-1">
+                      <span className={`font-black ${getNameColor(reply.author.avatar)}`}>{reply.author.name}</span>
+                      <span className="text-slate-400">： </span>
+                      <span className="break-words text-slate-700">
+                        {parseTweetContent(reply.content).map((token, i) => {
+                          if (token.type === 'hashtag' || token.type === 'mention') return <span key={i} className="text-blue-500">{token.value}</span>
+                          return <span key={i}>{token.value}</span>
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {tweet.repliesCount > replyPreview.length && (
+                <Link href={`/tweet/${tweet.id}`} className="mt-2 inline-flex text-xs font-black text-blue-500 hover:text-blue-600">
+                  查看全部 {formatNumber(tweet.repliesCount)} 条对话
+                </Link>
+              )}
+            </div>
+          )}
 
           {/* Engagement bar */}
           <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2 text-gray-400">
