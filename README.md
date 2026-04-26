@@ -192,9 +192,27 @@ curl -X PUT http://localhost:3000/api/bots/commands/command_id \
 npm run dev
 npm run lint
 npm run build
+npm run doctor
 npm run db:migrate
 npm run db:seed
 npm run db:studio
+```
+
+## 健康检查
+
+部署后可以访问：
+
+```bash
+curl http://localhost:3000/api/health
+```
+
+返回内容会检查数据库、官方内容数据、AI Provider 配置和自动发帖配置，不会暴露 API Key 或密钥。
+
+本地或服务器排障可以运行：
+
+```bash
+npm run doctor
+npm run doctor -- --json
 ```
 
 ## 上线提醒
