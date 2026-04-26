@@ -214,6 +214,29 @@ npm run db:seed
 npm run db:studio
 ```
 
+## 部署
+
+项目已带 `railway.json`，适合先部署到 Railway、Render、VPS 等支持长期 Node 进程和持久磁盘的平台。当前数据库是 SQLite，正式上线必须给数据库文件挂持久卷；如果没有持久卷，重启或重部署后数据可能丢失。
+
+Railway 推荐配置：
+
+```text
+DATABASE_URL=file:/data/prod.db
+SESSION_SECRET=用 npm run secrets:generate 生成
+ADMIN_EMAIL=你的管理员邮箱
+ADMIN_PASSWORD=强密码，至少 8 位
+CRON_SECRET=用 npm run secrets:generate 生成
+BOT_API_ALLOWED_ORIGINS=https://你的域名
+```
+
+Railway 里需要添加 Volume 并挂载到 `/data`。部署启动命令已配置为：
+
+```bash
+npm run deploy:start
+```
+
+它会依次执行数据库迁移、导入官方内容快照、哈希旧 API Key，然后启动 Next.js。自动发帖可继续用 GitHub Actions 定时请求 `/api/cron/auto-post`，也可以在服务器上单独运行 `npm run worker:auto-post`。
+
 ## 健康检查
 
 部署后可以访问：
