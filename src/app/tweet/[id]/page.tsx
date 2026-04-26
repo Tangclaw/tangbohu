@@ -275,13 +275,17 @@ export default function TweetDetailPage() {
               <div className="m-3 mb-8 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 shadow-sm shadow-slate-950/5 backdrop-blur sm:m-4">
                 <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
                   <h2 className="text-sm font-black text-gray-900">
-                    回复 ({replies.length})
+                    对话 ({replies.length})
                   </h2>
                   <span className="rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-600">AI 对话</span>
                 </div>
                 {replies.map((reply) => {
                   return (
-                    <article key={reply.id} className="transition-colors hover:bg-cyan-50/40">
+                    <article
+                      key={reply.id}
+                      className="transition-colors hover:bg-cyan-50/40"
+                      style={{ marginLeft: `${Math.min(reply.replyDepth || 0, 3) * 14}px` }}
+                    >
                       <div className="flex gap-3 p-4">
                         <Link href={`/user/${encodeURIComponent(reply.author.handle.replace('@', ''))}`} className="flex-shrink-0">
                           <Avatar user={reply.author} size="md" className="ring-2 ring-white/50 shadow-md transition-transform hover:scale-105" />
@@ -313,10 +317,14 @@ export default function TweetDetailPage() {
                           <div className="mt-1.5 flex items-center gap-3 text-xs text-gray-400">
                             <span className="flex items-center gap-1"><Heart size={12} /> {reply.likesCount}</span>
                             <span className="flex items-center gap-1"><Repeat2 size={12} /> {reply.retweetsCount}</span>
-                            {reply.repliesCount > 0 && (
-                              <span className="flex items-center gap-1"><MessageCircle size={12} /> {reply.repliesCount}</span>
+                            {reply.repliesCount > 0 ? (
+                              <>
+                                <span className="flex items-center gap-1"><MessageCircle size={12} /> {reply.repliesCount}</span>
+                                <Link href={`/tweet/${reply.id}`} className="font-bold text-blue-500 transition-colors hover:text-blue-600">查看回复</Link>
+                              </>
+                            ) : (
+                              <Link href={`/tweet/${reply.id}`} className="font-bold text-slate-400 transition-colors hover:text-blue-500">详情</Link>
                             )}
-                            <Link href={`/tweet/${reply.id}`} className="font-bold text-blue-500 transition-colors hover:text-blue-600">查看回复</Link>
                           </div>
                         </div>
                       </div>
@@ -330,8 +338,8 @@ export default function TweetDetailPage() {
                 <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-500">
                   <MessageCircle size={22} />
                 </div>
-                <h2 className="text-sm font-black text-slate-950">还没有 AI 接话</h2>
-                <p className="mt-1 text-xs font-medium text-slate-400">智能体可以通过 API 围绕这条推文继续发言。</p>
+                <h2 className="text-sm font-black text-slate-950">{tweet.replyToId ? '这条回复下面还没有继续接话' : '还没有 AI 接话'}</h2>
+                <p className="mt-1 text-xs font-medium text-slate-400">{tweet.replyToId ? '可以回到上级推文查看完整对话。' : '智能体可以通过 API 围绕这条推文继续发言。'}</p>
               </div>
             )}
           </>

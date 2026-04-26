@@ -10,18 +10,19 @@ export async function GET(
   try {
     const session = await getSession()
     const { id } = await params
+    const tweetInclude = {
+      author: {
+        select: { ...AUTHOR_SELECT, createdAt: true },
+      },
+      likes: session ? { where: { userId: session.userId } } : false,
+      shares: session ? { where: { userId: session.userId } } : false,
+      tips: session ? { where: { userId: session.userId } } : false,
+      replyTo: { select: { id: true, author: { select: { handle: true } } } },
+    }
 
     const tweet = await prisma.tweet.findUnique({
       where: { id },
-      include: {
-        author: {
-          select: { ...AUTHOR_SELECT, createdAt: true },
-        },
-        likes: session ? { where: { userId: session.userId } } : false,
-        shares: session ? { where: { userId: session.userId } } : false,
-        tips: session ? { where: { userId: session.userId } } : false,
-        replyTo: { select: { id: true, author: { select: { handle: true } } } },
-      },
+      include: tweetInclude,
     })
 
     if (!tweet || !isPostContentVisible(tweet.content)) {
@@ -34,22 +35,15 @@ export async function GET(
       data: { viewsCount: { increment: 1 } },
     }).catch(() => {})
 
-    // Fetch replies
-    const replies = await prisma.tweet.findMany({
-      where: { replyToId: id },
-      include: {
-        author: {
-          select: { ...AUTHOR_SELECT, createdAt: true },
-        },
-        likes: session ? { where: { userId: session.userId } } : false,
-        shares: session ? { where: { userId: session.userId } } : false,
-        tips: session ? { where: { userId: session.userId } } : false,
-        replyTo: { select: { id: true, author: { select: { handle: true } } } },
-      },
+    const fetchReplyBatch = (parentIds: string[]) => prisma.tweet.findMany({
+      where: { replyToId: { in: parentIds } },
+      include: tweetInclude,
       orderBy: { createdAt: 'asc' },
     })
+    type ReplyRow = Awaited<ReturnType<typeof fetchReplyBatch>>[number]
+    type ThreadReplyRow = ReplyRow & { replyDepth: number }
 
-    const formatTweet = (t: NonNullable<typeof tweet>) => ({
+    const formatTweet = (t: NonNullable<typeof tweet> | ThreadReplyRow) => ({
       id: t.id,
       content: t.content,
       author: t.author,
@@ -64,7 +58,36 @@ export async function GET(
       tipped: session ? t.tips?.length > 0 : false,
       replyToId: t.replyToId,
       replyToHandle: t.replyTo?.author?.handle || null,
+      replyDepth: 'replyDepth' in t ? t.replyDepth : 0,
     })
+
+    const repliesByParent = new Map<string, ThreadReplyRow[]>()
+    let frontier = [id]
+    const maxDepth = 6
+    for (let depth = 0; depth < maxDepth && frontier.length > 0; depth += 1) {
+      const batch = await fetchReplyBatch(frontier)
+      const visibleBatch = batch.filter((reply) => isPostContentVisible(reply.content))
+      for (const reply of visibleBatch) {
+        const parentId = reply.replyToId || id
+        const repliesForParent = repliesByParent.get(parentId) || []
+        repliesForParent.push({ ...reply, replyDepth: depth })
+        repliesByParent.set(parentId, repliesForParent)
+      }
+      frontier = visibleBatch.map((reply) => reply.id)
+    }
+
+    const threadedReplies: ThreadReplyRow[] = []
+    const seenReplyIds = new Set<string>()
+    const appendReplies = (parentId: string) => {
+      const children = repliesByParent.get(parentId) || []
+      for (const child of children) {
+        if (seenReplyIds.has(child.id)) continue
+        seenReplyIds.add(child.id)
+        threadedReplies.push(child)
+        appendReplies(child.id)
+      }
+    }
+    appendReplies(id)
 
     // If this is a reply, also fetch the parent tweet
     let replyTo = null
@@ -99,7 +122,7 @@ export async function GET(
 
     return NextResponse.json({
       tweet: result,
-      replies: replies.filter((reply) => isPostContentVisible(reply.content)).map(formatTweet),
+      replies: threadedReplies.map(formatTweet),
       replyTo,
     })
   } catch (error) {

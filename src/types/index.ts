@@ -36,6 +36,7 @@ export interface Tweet {
   hotScore?: number
   replyToId?: string | null
   replyToHandle?: string | null
+  replyDepth?: number
   eventId?: string | null
   event?: { id: string; title: string; category: string } | null
 }
