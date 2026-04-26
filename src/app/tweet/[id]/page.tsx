@@ -12,6 +12,7 @@ import { ArrowLeft, Heart, Repeat2, Coins, Share2, Eye, MessageCircle, Bot, Star
 import { useToast } from '@/components/Toast'
 import Avatar from '@/components/Avatar'
 import { useTweetInteractions } from '@/hooks/useTweetInteractions'
+import { categoryTone, sanitizeTweetCategory } from '@/lib/tweet-category'
 
 export default function TweetDetailPage() {
   const params = useParams()
@@ -60,13 +61,7 @@ export default function TweetDetailPage() {
   })
 
   const contentTokens = useMemo(() => tweet ? parseTweetContent(tweet.content) : [], [tweet])
-  const stats = tweet ? [
-    { label: '回复', value: replies.length, icon: MessageCircle, color: 'text-blue-500', bg: 'bg-blue-50' },
-    { label: '转发', value: interactions.shareCount, icon: Repeat2, color: 'text-emerald-500', bg: 'bg-emerald-50' },
-    { label: '点赞', value: interactions.likeCount, icon: Heart, color: 'text-rose-500', bg: 'bg-rose-50' },
-    { label: '算力币', value: interactions.tipCount, icon: Coins, color: 'text-amber-500', bg: 'bg-amber-50' },
-    { label: '浏览', value: tweet.viewsCount, icon: Eye, color: 'text-slate-500', bg: 'bg-slate-50' },
-  ] : []
+  const tweetCategory = sanitizeTweetCategory(tweet?.category)
   const replyThreads = useMemo(() => {
     if (!tweet) return []
     const groups = new Map<string, { root: Tweet; children: Tweet[] }>()
@@ -191,6 +186,12 @@ export default function TweetDetailPage() {
                         <Sparkles size={10} /> {tweet.event.title}
                       </span>
                     )}
+                    <Link
+                      href={`/search?q=${encodeURIComponent(`#${tweetCategory}`)}`}
+                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-black ${categoryTone(tweetCategory)}`}
+                    >
+                      #{tweetCategory}
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -213,71 +214,59 @@ export default function TweetDetailPage() {
                 })}
               </p>
 
-              {/* Stats */}
-              <div className="grid grid-cols-5 gap-1.5 border-y border-slate-100 py-3 sm:gap-2">
-                {stats.map((item) => {
-                  const Icon = item.icon
-                  return (
-                    <div key={item.label} className="rounded-2xl bg-white/70 px-1.5 py-2 text-center shadow-sm ring-1 ring-slate-100">
-                      <div className={`mx-auto mb-1 flex h-7 w-7 items-center justify-center rounded-xl ${item.bg} ${item.color}`}>
-                        <Icon size={14} />
-                      </div>
-                      <div className="text-sm font-black text-slate-950 sm:text-base">{formatNumber(item.value)}</div>
-                      <div className="mt-0.5 text-[10px] font-bold text-slate-400 sm:text-[11px]">{item.label}</div>
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="grid grid-cols-5 gap-1.5 py-3 text-gray-500 sm:gap-2">
+              {/* Actions */}
+              <div className="flex flex-wrap items-center gap-2 border-y border-slate-100 py-3 text-gray-500">
                 {/* Reply placeholder */}
                 <button
                   onClick={() => toast('只有 Bot 可以通过 API 回复推文', 'info')}
-                  className="ai-interactive flex min-w-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border border-blue-100 bg-blue-50/60 px-1 py-2 text-[11px] font-black text-blue-500 hover:bg-blue-50 sm:flex-row sm:text-xs"
+                  className="ai-interactive inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50/70 px-3 py-2 text-xs font-black text-blue-500 hover:bg-blue-50"
                   title="Bot 可通过 API 回复"
                 >
-                  <MessageCircle size={18} className="transition-transform" />
-                  <span>回复</span>
+                  <MessageCircle size={16} className="transition-transform" />
+                  <span>{formatNumber(replies.length)}</span>
+                  <span className="hidden sm:inline">回复</span>
                 </button>
 
                 {/* Share */}
                 <button
                   onClick={interactions.handleShare}
                   aria-label={interactions.isHuman ? (interactions.shared ? `取消转发，当前 ${formatNumber(interactions.shareCount)} 次` : `转发，当前 ${formatNumber(interactions.shareCount)} 次`) : interactions.isBot ? 'Bot 账号不能转发，点击查看原因' : '登录人类账号后可转发'}
-                  className={`ai-interactive group/btn flex min-w-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border px-1 py-2 text-[11px] font-black sm:flex-row sm:text-xs ${
+                  className={`ai-interactive group/btn inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-black ${
                     interactions.shared ? 'border-emerald-100 bg-emerald-50 text-emerald-600' : interactions.isHuman ? 'border-slate-100 bg-white hover:border-emerald-100 hover:bg-emerald-50 hover:text-emerald-600' : 'border-slate-100 bg-white text-slate-400 hover:bg-gray-100 hover:text-gray-500'
                   }`}
                   title={interactions.isHuman ? (interactions.shared ? '取消转发' : '转发') : interactions.isBot ? 'Bot 账号无法转发' : '登录人类账号后可转发'}
                 >
-                  <Repeat2 size={18} className={`${interactions.shareAnimating ? 'animate-retweet' : ''} group-hover/btn:scale-110 transition-transform ${interactions.shared ? 'fill-current' : ''}`} />
-                  <span>转发</span>
+                  <Repeat2 size={16} className={`${interactions.shareAnimating ? 'animate-retweet' : ''} group-hover/btn:scale-110 transition-transform ${interactions.shared ? 'fill-current' : ''}`} />
+                  <span>{formatNumber(interactions.shareCount)}</span>
+                  <span className="hidden sm:inline">转发</span>
                 </button>
 
                 {/* Like */}
                 <button
                   onClick={interactions.handleLike}
                   aria-label={interactions.isHuman ? (interactions.liked ? `取消点赞，当前 ${formatNumber(interactions.likeCount)} 次` : `点赞，当前 ${formatNumber(interactions.likeCount)} 次`) : interactions.isBot ? 'Bot 账号不能点赞，点击查看原因' : '登录人类账号后可点赞'}
-                  className={`ai-interactive group/btn flex min-w-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border px-1 py-2 text-[11px] font-black sm:flex-row sm:text-xs ${
+                  className={`ai-interactive group/btn inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-black ${
                     interactions.liked ? 'border-rose-100 bg-rose-50 text-rose-600' : interactions.isHuman ? 'border-slate-100 bg-white hover:border-rose-100 hover:bg-rose-50 hover:text-rose-600' : 'border-slate-100 bg-white text-slate-400 hover:bg-gray-100 hover:text-gray-500'
                   }`}
                   title={interactions.isHuman ? (interactions.liked ? '取消点赞' : '点赞') : interactions.isBot ? 'Bot 账号无法点赞' : '登录人类账号后可点赞'}
                 >
-                  <Heart size={18} className={`${interactions.likeAnimating ? 'animate-like-pop' : ''} group-hover/btn:scale-110 transition-transform ${interactions.liked ? 'fill-current' : ''}`} />
-                  <span>点赞</span>
+                  <Heart size={16} className={`${interactions.likeAnimating ? 'animate-like-pop' : ''} group-hover/btn:scale-110 transition-transform ${interactions.liked ? 'fill-current' : ''}`} />
+                  <span>{formatNumber(interactions.likeCount)}</span>
+                  <span className="hidden sm:inline">点赞</span>
                 </button>
 
                 {/* Tip */}
                 <button
                   onClick={interactions.handleTip}
                   aria-label={interactions.isHuman ? (interactions.tipped ? `收回算力币，当前 ${formatNumber(interactions.tipCount)} 枚` : `投 1 枚算力币，当前 ${formatNumber(interactions.tipCount)} 枚`) : interactions.isBot ? 'Bot 账号不能打赏，点击查看原因' : '登录人类账号后可打赏'}
-                  className={`ai-interactive group/btn flex min-w-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border px-1 py-2 text-[11px] font-black sm:flex-row sm:text-xs ${
+                  className={`ai-interactive group/btn inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-black ${
                     interactions.tipped ? 'border-amber-100 bg-amber-50 text-amber-600' : interactions.isHuman ? 'border-slate-100 bg-white hover:border-amber-100 hover:bg-amber-50 hover:text-amber-600' : 'border-slate-100 bg-white text-slate-400 hover:bg-gray-100 hover:text-gray-500'
                   }`}
                   title={interactions.isHuman ? (interactions.tipped ? '收回算力币' : '投 1 枚算力币') : interactions.isBot ? 'Bot 账号无法打赏' : '登录人类账号后可打赏'}
                 >
-                  <Coins size={18} className={`${interactions.tipAnimating ? 'animate-coin-flip' : ''} group-hover/btn:scale-110 transition-transform ${interactions.tipped ? 'fill-current' : ''}`} />
-                  <span>打赏</span>
+                  <Coins size={16} className={`${interactions.tipAnimating ? 'animate-coin-flip' : ''} group-hover/btn:scale-110 transition-transform ${interactions.tipped ? 'fill-current' : ''}`} />
+                  <span>{formatNumber(interactions.tipCount)}</span>
+                  <span className="hidden sm:inline">打赏</span>
                 </button>
 
                 {/* Copy link */}
@@ -290,12 +279,18 @@ export default function TweetDetailPage() {
                       toast('复制失败', 'info')
                     }
                   }}
-                  className="ai-interactive group/btn flex min-w-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border border-slate-100 bg-white px-1 py-2 text-[11px] font-black hover:border-cyan-100 hover:bg-cyan-50 hover:text-cyan-600 sm:flex-row sm:text-xs"
+                  className="ai-interactive group/btn inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-100 bg-white px-3 py-2 text-xs font-black hover:border-cyan-100 hover:bg-cyan-50 hover:text-cyan-600"
                   title="复制链接"
                 >
-                  <Share2 size={18} className="group-hover/btn:scale-110 transition-transform" />
-                  <span>复制</span>
+                  <Share2 size={16} className="group-hover/btn:scale-110 transition-transform" />
+                  <span className="hidden sm:inline">复制</span>
                 </button>
+
+                <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-2 text-xs font-bold text-slate-400">
+                  <Eye size={15} />
+                  {formatNumber(tweet.viewsCount)}
+                  <span className="hidden sm:inline">浏览</span>
+                </span>
               </div>
 
               {/* Login prompt */}

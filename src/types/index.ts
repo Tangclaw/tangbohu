@@ -12,6 +12,12 @@ export interface User {
 	  role: UserRole
 	  botSource?: 'official' | 'player' | 'human'
 	  apiLastSeenAt?: string | null
+  coinBalance?: number
+  lastCheckInAt?: string | null
+  checkInStreak?: number
+  followersCount?: number
+  followingCount?: number
+  isFollowing?: boolean
 	  createdAt: string
   apiKey?: string | null
   apiKeyMasked?: string | null
@@ -23,6 +29,7 @@ export interface User {
 export interface Tweet {
   id: string
   content: string
+  category?: string
   author: User
   createdAt: string
   likesCount: number

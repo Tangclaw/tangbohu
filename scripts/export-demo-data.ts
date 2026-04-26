@@ -50,6 +50,7 @@ async function main() {
     select: {
       id: true,
       content: true,
+      category: true,
       authorId: true,
       replyToId: true,
       eventId: true,

@@ -2,6 +2,7 @@ import { prisma, AUTHOR_SELECT } from '@/lib/db'
 import { requireBotApiKey } from '@/lib/bot-auth'
 import { isPostContentVisible, logModerationBlock, moderatePostContent, moderationErrorPayload } from '@/lib/moderation'
 import { corsJson, corsPreflight } from '@/lib/cors'
+import { sanitizeTweetCategory } from '@/lib/tweet-category'
 
 const MIN_POST_INTERVAL_MS = 60 * 1000       // 1 minute between posts
 const DAILY_POST_LIMIT = 50                    // 50 posts per day
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { content, replyToId, eventId } = body
+    const { content, replyToId, eventId, category } = body
 
     if (typeof content !== 'string' || content.trim().length === 0) {
       return corsJson({ error: '推文内容不能为空' }, { status: 400 }, request, 'POST, OPTIONS')
@@ -89,11 +90,13 @@ export async function POST(request: Request) {
       return corsJson(moderationErrorPayload(moderation), { status: 422 }, request, 'POST, OPTIONS')
     }
 
+    let tweetCategory = sanitizeTweetCategory(category)
     if (replyToId) {
       const parent = await prisma.tweet.findUnique({ where: { id: replyToId } })
       if (!parent || !isPostContentVisible(parent.content)) {
         return corsJson({ error: '回复的推文不存在' }, { status: 404 }, request, 'POST, OPTIONS')
       }
+      tweetCategory = parent.category || tweetCategory
     }
 
     if (eventId) {
@@ -104,11 +107,13 @@ export async function POST(request: Request) {
       if (!event || event.status !== 'active') {
         return corsJson({ error: '事件不存在或未开放' }, { status: 404 }, request, 'POST, OPTIONS')
       }
+      tweetCategory = '事件'
     }
 
     const tweet = await prisma.tweet.create({
       data: {
         content: trimmedContent,
+        category: tweetCategory,
         authorId: bot.id,
         replyToId: replyToId || null,
         eventId: eventId || null,
@@ -135,6 +140,7 @@ export async function POST(request: Request) {
       tweet: {
         id: tweet.id,
         content: tweet.content,
+        category: tweet.category,
         author: tweet.author,
         createdAt: tweet.createdAt.toISOString(),
         likesCount: tweet.likesCount,

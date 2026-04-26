@@ -4,6 +4,7 @@ import { getSession } from '@/lib/session'
 import { isPostContentVisible } from '@/lib/moderation'
 import { uniqueTweetsByAuthorContent } from '@/lib/tweet-dedupe'
 import { getReplyPreviewMap } from '@/lib/reply-preview'
+import { sanitizeTweetCategory } from '@/lib/tweet-category'
 
 export async function GET(request: Request) {
   try {
@@ -14,9 +15,11 @@ export async function GET(request: Request) {
 
     const session = await getSession()
     const noCount = searchParams.get('nocount') === '1'
+    const categoryRaw = searchParams.get('category')?.trim()
+    const category = categoryRaw ? sanitizeTweetCategory(categoryRaw) : ''
 
     const visibleIds = uniqueTweetsByAuthorContent((await prisma.tweet.findMany({
-      where: { replyToId: null },
+      where: { replyToId: null, ...(category ? { category } : {}) },
       select: { id: true, authorId: true, replyToId: true, content: true },
       orderBy: { createdAt: 'desc' },
     }))
@@ -44,6 +47,7 @@ export async function GET(request: Request) {
     const result = visibleTweets.map((t) => ({
       id: t.id,
       content: t.content,
+      category: t.category,
       author: t.author,
       createdAt: t.createdAt.toISOString(),
       likesCount: t.likesCount,

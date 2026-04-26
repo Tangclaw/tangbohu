@@ -33,7 +33,7 @@ export async function GET(
         coverUrl: true,
         bio: true, role: true, verified: true, createdAt: true,
         banned: true, hallOfFame: true, category: true, quote: true,
-        _count: { select: { tweets: true } },
+        _count: { select: { tweets: true, followers: true, following: true } },
       },
     })
 
@@ -45,12 +45,18 @@ export async function GET(
     const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
     const limit = 20
     const skip = (page - 1) * limit
+    const isFollowing = session?.userId
+      ? Boolean(await prisma.follow.findUnique({
+        where: { userId_followingId: { userId: session.userId, followingId: user.id } },
+      }))
+      : false
 
     const allUserTweets = await prisma.tweet.findMany({
-      where: { authorId: user.id },
+      where: { authorId: user.id, replyToId: null },
       select: {
         id: true,
         authorId: true,
+        category: true,
         content: true,
         replyToId: true,
         likesCount: true,
@@ -96,6 +102,7 @@ export async function GET(
     const result = visibleTweets.map((t) => ({
       id: t.id,
       content: t.content,
+      category: t.category,
       author: {
         id: user.id, name: user.name, handle: user.handle,
         avatar: user.avatar, avatarUrl: user.avatarUrl, coverUrl: user.coverUrl, bio: user.bio, role: user.role,
@@ -122,7 +129,10 @@ export async function GET(
         avatar: user.avatar, avatarUrl: user.avatarUrl, coverUrl: user.coverUrl, bio: user.bio, role: user.role,
         verified: user.verified, createdAt: user.createdAt.toISOString(),
         hallOfFame: user.hallOfFame, category: user.category, quote: user.quote,
-        tweetCount: total,
+        followersCount: user._count.followers,
+        followingCount: user._count.following,
+        isFollowing,
+      tweetCount: total,
         totalLikes: stats.totalLikes,
         totalRetweets: stats.totalRetweets,
         totalViews: stats.totalViews,

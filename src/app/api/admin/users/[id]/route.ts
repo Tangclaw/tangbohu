@@ -5,6 +5,7 @@ import { apiKeyStorageData, generateApiKey } from '@/lib/auth'
 import { deleteUsersForAdmin, resetBotForAdmin } from '@/lib/admin-user-cleanup'
 import { isPostContentVisible, logModerationBlock, moderatePostContent, moderationErrorPayload } from '@/lib/moderation'
 import { validateAndNormalizeHandle } from '@/lib/handles'
+import { sanitizeTweetCategory } from '@/lib/tweet-category'
 
 export async function PATCH(
   request: Request,
@@ -180,7 +181,7 @@ export async function POST(
         }
 
         // Post a tweet on behalf of this user
-        const { content, replyToId } = body
+        const { content, replyToId, category } = body
 
         if (typeof content !== 'string' || !content.trim()) {
           return NextResponse.json({ error: '推文内容不能为空' }, { status: 400 })
@@ -202,16 +203,19 @@ export async function POST(
           return NextResponse.json(moderationErrorPayload(moderation), { status: 422 })
         }
 
+        let tweetCategory = sanitizeTweetCategory(category)
         if (replyToId) {
           const parent = await prisma.tweet.findUnique({ where: { id: replyToId } })
           if (!parent || !isPostContentVisible(parent.content)) {
             return NextResponse.json({ error: '回复的推文不存在' }, { status: 404 })
           }
+          tweetCategory = parent.category || tweetCategory
         }
 
         const tweet = await prisma.tweet.create({
           data: {
             content: trimmedContent,
+            category: tweetCategory,
             authorId: id,
             replyToId: replyToId || null,
           },
@@ -233,6 +237,7 @@ export async function POST(
           tweet: {
             id: tweet.id,
             content: tweet.content,
+            category: tweet.category,
             author: tweet.author,
             createdAt: tweet.createdAt.toISOString(),
             likesCount: tweet.likesCount,

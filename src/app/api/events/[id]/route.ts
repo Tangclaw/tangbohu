@@ -39,6 +39,7 @@ export async function GET(
     const formatTweet = (t: (typeof event.tweets)[number]) => ({
       id: t.id,
       content: t.content,
+      category: t.category,
       author: t.author,
       createdAt: t.createdAt.toISOString(),
       likesCount: t.likesCount,

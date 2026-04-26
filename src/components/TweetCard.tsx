@@ -1,14 +1,16 @@
 'use client'
 
 import { Tweet } from '@/types'
-import { Heart, MessageCircle, Repeat2, Share2, Eye, Bot, Coins, Star, Trash2, Flame } from 'lucide-react'
+import { Heart, MessageCircle, Repeat2, Share2, Eye, Bot, Coins, Star, Trash2, Flame, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import Link from 'next/link'
-import { useMemo, memo, useState } from 'react'
+import { useMemo, memo, useState, type KeyboardEvent, type MouseEvent } from 'react'
+import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/Toast'
 import { getNameColor, formatNumber, formatDate, parseTweetContent } from '@/lib/utils'
 import Avatar from '@/components/Avatar'
 import { useTweetInteractions } from '@/hooks/useTweetInteractions'
 import { useAuth } from '@/lib/auth-context'
+import { categoryTone, sanitizeTweetCategory } from '@/lib/tweet-category'
 
 interface TweetCardProps {
   tweet: Tweet
@@ -19,7 +21,11 @@ interface TweetCardProps {
 export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps) {
   const { user } = useAuth()
   const { toast } = useToast()
+  const router = useRouter()
   const [deleting, setDeleting] = useState(false)
+  const [threadExpanded, setThreadExpanded] = useState(false)
+  const [threadLoading, setThreadLoading] = useState(false)
+  const [threadReplies, setThreadReplies] = useState<Tweet[] | null>(null)
   const {
     liked, likeCount, shared, shareCount, tipped, tipCount,
     likeAnimating, shareAnimating, tipAnimating,
@@ -39,6 +45,8 @@ export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps
   const nameColor = getNameColor(tweet.author.avatar)
   const isAdmin = user?.role === 'admin'
   const replyPreview = tweet.replyPreview || []
+  const displayedReplies = threadExpanded && threadReplies ? threadReplies : replyPreview
+  const tweetCategory = sanitizeTweetCategory(tweet.category)
 
   const handleDelete = async () => {
     if (!isAdmin || deleting) return
@@ -52,8 +60,59 @@ export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps
     finally { setDeleting(false) }
   }
 
+  const openTweetDetail = () => {
+    const selection = typeof window !== 'undefined' ? window.getSelection()?.toString() : ''
+    if (selection) return
+    router.push(`/tweet/${tweet.id}`)
+  }
+
+  const handleCardClick = (event: MouseEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement | null
+    if (target?.closest('a, button, input, textarea, select, [data-no-card-nav]')) return
+    openTweetDetail()
+  }
+
+  const handleCardKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.defaultPrevented || event.target !== event.currentTarget) return
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      openTweetDetail()
+    }
+  }
+
+  const toggleThread = async () => {
+    if (threadExpanded) {
+      setThreadExpanded(false)
+      return
+    }
+    if (threadReplies) {
+      setThreadExpanded(true)
+      return
+    }
+
+    setThreadLoading(true)
+    try {
+      const res = await fetch(`/api/tweets/${tweet.id}`)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !Array.isArray(data.replies)) throw new Error(data.error || 'LOAD_THREAD_FAILED')
+      setThreadReplies(data.replies)
+      setThreadExpanded(true)
+    } catch {
+      toast('加载对话失败，请稍后重试', 'info')
+    } finally {
+      setThreadLoading(false)
+    }
+  }
+
   return (
-    <article className="group relative z-[1] isolate border-b border-blue-50 bg-white px-4 py-3.5 shadow-sm shadow-blue-950/[0.03] transition-all hover:bg-cyan-50/60 hover:shadow-md">
+    <article
+      role="link"
+      tabIndex={0}
+      aria-label={`查看 ${tweet.author.name} 的帖子详情`}
+      onClick={handleCardClick}
+      onKeyDown={handleCardKeyDown}
+      className="group relative z-[1] isolate cursor-pointer border-b border-blue-50 bg-white px-4 py-3.5 shadow-sm shadow-blue-950/[0.03] outline-none transition-all hover:bg-cyan-50/60 hover:shadow-md focus-visible:ring-2 focus-visible:ring-blue-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+    >
       <div className="flex gap-3">
         {/* Avatar column */}
         <div className="flex flex-col items-center gap-1">
@@ -97,6 +156,12 @@ export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps
                     <Star size={8} className="text-amber-500" />名人堂
                   </span>
                 )}
+                <Link
+                  href={`/search?q=${encodeURIComponent(`#${tweetCategory}`)}`}
+                  className={`rounded-full border px-1.5 py-px text-[9px] font-black ${categoryTone(tweetCategory)}`}
+                >
+                  #{tweetCategory}
+                </Link>
                 {tweet.hotScore !== undefined && tweet.hotScore > 0 && (
                   <span className="flex items-center gap-0.5 rounded-full border border-rose-100 bg-rose-50 px-1.5 py-px text-[9px] font-bold text-rose-500">
                     <Flame size={8} /> 热度 {tweet.hotScore}
@@ -130,14 +195,24 @@ export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps
             })}
           </p>
 
-          {replyPreview.length > 0 && (
-            <div className="mb-2 rounded-2xl bg-slate-50/90 px-3 py-2 ring-1 ring-slate-100">
-              <div className="space-y-2">
-                {replyPreview.map((reply) => (
-                  <div key={reply.id} className={`flex gap-2 text-[13px] leading-5 ${reply.replyDepth ? 'ml-7 border-l border-slate-200 pl-2' : ''}`}>
+          {displayedReplies.length > 0 && (
+            <div
+              data-no-card-nav
+              className={`mb-2 rounded-2xl bg-slate-50/90 px-3 py-2 ring-1 ring-slate-100 transition-all ${threadExpanded ? 'shadow-inner shadow-slate-950/[0.03]' : ''}`}
+            >
+              <div className={`${threadExpanded ? 'max-h-96 overflow-y-auto pr-1' : ''} space-y-2`}>
+                {displayedReplies.map((reply) => {
+                  const depth = Math.min(reply.replyDepth || 0, 3)
+                  return (
+                  <div key={reply.id} className="flex gap-2 text-[13px] leading-5" style={depth ? { marginLeft: `${Math.min(depth * 18, 54)}px` } : undefined}>
                     <Avatar user={reply.author} size="sm" className="mt-0.5 shrink-0 ring-2 ring-white" />
                     <div className="min-w-0 flex-1">
-                      <span className={`font-black ${getNameColor(reply.author.avatar)}`}>{reply.author.name}</span>
+                      <div className="flex min-w-0 flex-wrap items-center gap-1">
+                        <span className={`font-black ${getNameColor(reply.author.avatar)}`}>{reply.author.name}</span>
+                        {depth > 0 && reply.replyToHandle && (
+                          <span className="text-[11px] font-medium text-slate-400">回复 <span className="text-blue-500">{reply.replyToHandle}</span></span>
+                        )}
+                      </div>
                       <span className="text-slate-400">： </span>
                       <span className="break-words text-slate-700">
                         {parseTweetContent(reply.content).map((token, i) => {
@@ -147,12 +222,19 @@ export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps
                       </span>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
               {tweet.repliesCount > replyPreview.length && (
-                <Link href={`/tweet/${tweet.id}`} className="mt-2 inline-flex text-xs font-black text-blue-500 hover:text-blue-600">
-                  查看全部 {formatNumber(tweet.repliesCount)} 条对话
-                </Link>
+                <button
+                  type="button"
+                  onClick={toggleThread}
+                  disabled={threadLoading}
+                  className="mt-2 inline-flex items-center gap-1 rounded-full px-0 py-1 text-xs font-black text-blue-500 transition hover:text-blue-600 disabled:opacity-60"
+                >
+                  {threadLoading ? <Loader2 size={13} className="animate-spin" /> : threadExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                  {threadLoading ? '加载对话中...' : threadExpanded ? '收起对话' : `展开全部 ${formatNumber(tweet.repliesCount)} 条对话`}
+                </button>
               )}
             </div>
           )}
@@ -183,7 +265,7 @@ export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps
             <button onClick={handleTip}
               aria-label={isHuman ? (tipped ? `收回算力币，当前 ${formatNumber(tipCount)} 枚` : `投 1 枚算力币，当前 ${formatNumber(tipCount)} 枚`) : isBot ? 'Bot 账号不能打赏，点击查看原因' : '登录人类账号后可打赏'}
               className={`group/btn flex min-w-10 cursor-pointer items-center justify-center gap-1 rounded-full px-2 py-1.5 transition-all active:scale-90 ${tipped ? 'text-yellow-500 hover:bg-yellow-50' : isHuman ? 'hover:bg-yellow-50 hover:text-yellow-500' : 'hover:bg-gray-100 hover:text-gray-500'}`}
-              title={isHuman ? (tipped ? '收回算力币' : '投 1 枚算力币') : isBot ? 'Bot 无法打赏' : '登录后可打赏'}>
+              title={isHuman ? (tipped ? '收回算力币' : '消耗 1 枚算力币打赏') : isBot ? 'Bot 无法打赏' : '登录后可打赏'}>
               <Coins size={16} className={`${tipAnimating ? 'animate-coin-drop' : ''} ${isHuman ? 'group-hover/btn:scale-110 transition-transform' : ''} ${tipped ? 'fill-current' : ''}`} />
               <span className="text-xs">{tipCount > 0 ? formatNumber(tipCount) : ''}</span>
             </button>
@@ -208,7 +290,7 @@ export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps
           {tipCount > 0 && (
             <div className="mt-1.5 flex items-center gap-1 text-[11px] text-yellow-600/80">
               <Coins size={11} />
-              <span>获得 {tipCount} 算力币</span>
+              <span>收到 {tipCount} 次打赏</span>
             </div>
           )}
 

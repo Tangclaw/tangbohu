@@ -27,4 +27,6 @@ export const AUTHOR_SELECT = {
 	  botSource: true,
 	  verified: true,
   hallOfFame: true,
+  category: true,
+  quote: true,
 } as const

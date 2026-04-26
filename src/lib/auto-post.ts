@@ -293,6 +293,20 @@ function semanticSnippet(content: string) {
     .slice(0, 24)
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function normalizeHandle(handle: string) {
+  return handle.replace(/^@/, '').trim().toLowerCase()
+}
+
+function contentMentionsHandle(content: string, handle: string) {
+  const normalizedHandle = normalizeHandle(handle)
+  if (!normalizedHandle) return false
+  return new RegExp(`@${escapeRegExp(normalizedHandle)}(?=$|\\s|[，。！？、,.!?:：;；])`, 'i').test(content)
+}
+
 function randomInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
@@ -697,6 +711,39 @@ function pickReplyBots(
     .map((item) => item.candidate)
 }
 
+function pickNextReplyBot(
+  plannedBots: BotPersona[],
+  allReplyBots: BotPersona[],
+  target: ReplyTarget,
+  previousTurn: DebateTurn | undefined,
+  usedAuthorIds: Set<string>,
+  seed: number,
+  allowRootAuthorReply: boolean
+) {
+  if (
+    allowRootAuthorReply &&
+    previousTurn &&
+    previousTurn.author.id !== target.author.id &&
+    !usedAuthorIds.has(target.author.id) &&
+    contentMentionsHandle(previousTurn.content, target.author.handle)
+  ) {
+    return target.author
+  }
+
+  const plannedIndex = plannedBots.findIndex((bot) => bot.id !== previousTurn?.author.id && !usedAuthorIds.has(bot.id))
+  if (plannedIndex >= 0) {
+    const [bot] = plannedBots.splice(plannedIndex, 1)
+    return bot
+  }
+
+  const fallback = allReplyBots
+    .filter((bot) => bot.id !== previousTurn?.author.id && bot.id !== target.author.id && !usedAuthorIds.has(bot.id))
+    .map((bot, index) => ({ bot, score: Math.abs(seed + index * 53) % 997 }))
+    .sort((a, b) => a.score - b.score || a.bot.handle.localeCompare(b.bot.handle))[0]
+
+  return fallback?.bot
+}
+
 async function getDescendantReplies(rootId: string, maxDepth = 6) {
   const replies: Array<{
     id: string
@@ -775,16 +822,18 @@ async function createReplyForTarget(
     }
   }
   if (visibleReply.source === 'template' && replyGenerated.source === 'model') fallbackCount += 1
+  const finalContent = await ensureUniqueContent(replier.id, visibleReply.content, seed)
 
   const created = await prisma.tweet.create({
     data: {
       authorId: replier.id,
-      content: await ensureUniqueContent(replier.id, visibleReply.content, seed),
+      content: finalContent,
+      category: topic.category || '讨论',
       replyToId: parentId,
       likesCount: randomInt(0, 10),
       retweetsCount: randomInt(0, 4),
       viewsCount: randomInt(40, 240),
-      tipsCount: randomInt(0, 2),
+      tipsCount: 0,
     },
   })
   await refreshDirectReplyCount(parentId)
@@ -797,7 +846,7 @@ async function createReplyForTarget(
     modelCount,
     lastError,
     tweetId: created.id,
-    content: visibleReply.content,
+    content: finalContent,
     author: replier,
   }
 }
@@ -858,6 +907,7 @@ async function catchUpRecentRootReplies(
     const target: ReplyTarget = { id: root.id, content: root.content, author: root.author }
     const limit = Math.min(gap, AUTO_POST_CATCH_UP_REPLY_LIMIT - stats.createdReplies)
     const replyBots = pickReplyBots(allReplyBots, target, limit, seedBase + stats.createdReplies * 41, excludedAuthorIds)
+    const usedAuthorIds = new Set(excludedAuthorIds)
     let previousTurn: DebateTurn | undefined = existingReplies.length > 0
       ? {
         id: existingReplies[existingReplies.length - 1].id,
@@ -866,18 +916,29 @@ async function catchUpRecentRootReplies(
       }
       : undefined
 
-    for (let replyIndex = 0; replyIndex < replyBots.length; replyIndex += 1) {
+    for (let replyIndex = 0; replyIndex < limit; replyIndex += 1) {
+      const replier = pickNextReplyBot(
+        replyBots,
+        allReplyBots,
+        target,
+        previousTurn,
+        usedAuthorIds,
+        seedBase + stats.createdReplies * 53 + replyIndex * 17,
+        true
+      )
+      if (!replier) break
       const replyStats = await createReplyForTarget(
         schedule.id,
         topic,
         target,
-        replyBots[replyIndex],
+        replier,
         seedBase + stats.createdReplies * 53 + replyIndex * 17,
         previousTurn
       )
       addReplyStats(stats, replyStats)
       if (replyStats.tweetId && replyStats.author && replyStats.content) {
         previousTurn = { id: replyStats.tweetId, author: replyStats.author, content: replyStats.content }
+        usedAuthorIds.add(replyStats.author.id)
       }
     }
 
@@ -1002,25 +1063,37 @@ async function runSingleSchedule(
       data: {
         authorId: bot.id,
         content,
+        category: topic.category || '讨论',
         likesCount: randomInt(2, 18),
         retweetsCount: randomInt(0, 7),
         viewsCount: randomInt(80, 520),
-        tipsCount: randomInt(0, 3),
+        tipsCount: 0,
       },
     })
     createdRoots += 1
 
     const target: ReplyTarget = { id: root.id, content, author: bot }
     const replyBots = pickReplyBots(allReplyBots, target, schedule.repliesPerPost, seed)
+    const usedAuthorIds = new Set<string>()
     let previousTurn: DebateTurn | undefined
 
-    for (let replyIndex = 0; replyIndex < replyBots.length; replyIndex += 1) {
+    for (let replyIndex = 0; replyIndex < schedule.repliesPerPost; replyIndex += 1) {
       const shouldDebate = replyIndex >= 2 || (replyIndex >= 1 && seed % 3 === 0)
+      const replier = pickNextReplyBot(
+        replyBots,
+        allReplyBots,
+        target,
+        shouldDebate ? previousTurn : undefined,
+        usedAuthorIds,
+        seed + replyIndex * 23,
+        true
+      )
+      if (!replier) break
       const replyStats = await createReplyForTarget(
         schedule.id,
         topic,
         target,
-        replyBots[replyIndex],
+        replier,
         seed + replyIndex * 23,
         shouldDebate ? previousTurn : undefined
       )
@@ -1032,6 +1105,7 @@ async function runSingleSchedule(
       if (replyStats.lastError) lastError = replyStats.lastError
       if (replyStats.tweetId && replyStats.author && replyStats.content) {
         previousTurn = { id: replyStats.tweetId, author: replyStats.author, content: replyStats.content }
+        usedAuthorIds.add(replyStats.author.id)
       }
     }
 

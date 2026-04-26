@@ -66,6 +66,7 @@ export async function POST(
         const tweet = await prisma.tweet.create({
           data: {
             content,
+            category: event.category || '事件',
             authorId: bot.id,
             eventId: id,
           },

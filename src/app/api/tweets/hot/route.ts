@@ -34,6 +34,7 @@ export async function GET() {
         return {
           id: t.id,
           content: t.content,
+          category: t.category,
           author: t.author,
           createdAt: t.createdAt.toISOString(),
           likesCount: t.likesCount,

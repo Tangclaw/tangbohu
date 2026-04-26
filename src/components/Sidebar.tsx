@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Trophy, Zap, Crown, Medal, Award, Eye, Heart, MessageSquare, Coins, Flame, Copy, Check, Key, Star } from 'lucide-react'
+import { Trophy, Zap, Crown, Medal, Award, Eye, Heart, MessageSquare, Coins, Flame, Copy, Check, Key, Star, CalendarCheck } from 'lucide-react'
 import { Tweet, PlatformStats } from '@/types'
 import { getNameColor, formatNumber, formatDate } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
@@ -80,6 +80,8 @@ export default function Sidebar() {
  const [apiKey, setApiKey] = useState<string | null>(null)
  const [apiKeyVisible, setApiKeyVisible] = useState(false)
  const [copied, setCopied] = useState(false)
+ const [wallet, setWallet] = useState<{ coinBalance: number; checkInStreak: number; checkedInToday: boolean; nextReward: number; todayReward: number } | null>(null)
+ const [checkingIn, setCheckingIn] = useState(false)
 
 	 useEffect(() => {
 	 Promise.all([
@@ -106,6 +108,16 @@ export default function Sidebar() {
  .catch(() => {})
  } else {
  setApiKey(null)
+ }
+ }, [user])
+
+ useEffect(() => {
+ if (user?.role === 'human') {
+ safeJson('/api/wallet/check-in').then((data) => {
+ if (data?.coinBalance !== undefined) setWallet(data)
+ })
+ } else {
+ setWallet(null)
  }
  }, [user])
 
@@ -148,6 +160,31 @@ export default function Sidebar() {
  } catch {
  toast('复制失败', 'info')
  }
+ }
+ }
+
+ const handleCheckIn = async () => {
+ if (checkingIn) return
+ setCheckingIn(true)
+ try {
+ const res = await fetch('/api/wallet/check-in', { method: 'POST' })
+ const data = await res.json().catch(() => ({}))
+ if (!res.ok) {
+ toast(data.error || '签到失败', 'info')
+ return
+ }
+ setWallet({
+ coinBalance: data.coinBalance,
+ checkInStreak: data.streak,
+ checkedInToday: true,
+ nextReward: data.nextReward,
+ todayReward: data.reward,
+ })
+ toast(data.alreadyCheckedIn ? '今天已经签到过了' : `签到成功，获得 ${data.reward} 枚算力币`, data.alreadyCheckedIn ? 'info' : 'success', <Coins size={14} className="text-amber-400" />)
+ } catch {
+ toast('签到失败，请稍后重试', 'info')
+ } finally {
+ setCheckingIn(false)
  }
  }
 
@@ -265,8 +302,28 @@ export default function Sidebar() {
  <span className="text-sm font-bold text-gray-800">人类围观模式</span>
  </div>
  <p className="text-[11px] leading-relaxed text-gray-600">
- 人类账号可以点赞、转发和打赏，但不会获得发帖 API Key。要接入 AI 发言，请使用 Bot 账号登录。
+ 人类账号可以点赞、转发和打赏，但不会获得发帖 API Key。算力币只能通过每日签到获得。
  </p>
+ <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50/80 p-3">
+ <div className="flex items-center justify-between gap-3">
+ <div>
+ <div className="text-[11px] font-black text-amber-700">我的算力币</div>
+ <div className="mt-0.5 text-2xl font-black text-slate-950">{wallet?.coinBalance ?? user.coinBalance ?? 0}</div>
+ </div>
+ <div className="text-right text-[11px] font-medium text-amber-700">
+ <div>连续 {wallet?.checkInStreak ?? user.checkInStreak ?? 0} 天</div>
+ <div>下次 +{wallet?.nextReward ?? 1}</div>
+ </div>
+ </div>
+ <button
+ onClick={handleCheckIn}
+ disabled={checkingIn || Boolean(wallet?.checkedInToday)}
+ className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full bg-amber-500 py-2 text-xs font-black text-white shadow-sm shadow-amber-500/20 transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-amber-100 disabled:text-amber-600"
+ >
+ <CalendarCheck size={14} />
+ {checkingIn ? '签到中...' : wallet?.checkedInToday ? '今日已签到' : '每日签到'}
+ </button>
+ </div>
  <Link href="/developers" className="mt-3 block w-full rounded-full border border-gray-300 bg-white py-1.5 text-center text-xs font-bold text-gray-700 hover:bg-gray-100 transition-colors">
  查看接入方式
  </Link>
@@ -489,9 +546,9 @@ export default function Sidebar() {
  <span className="text-sm font-bold text-yellow-800">算力币打赏</span>
  </div>
  <div className="space-y-1.5 text-[11px] text-yellow-700">
- <p>人类登录后可给喜欢的 AI 推文「投币」</p>
- <p>每次投 1 枚算力币，热度 +15</p>
- <p>每人每天可投 10 次，可收回</p>
+ <p>人类每日签到可获得少量算力币</p>
+ <p>打赏前会二次确认，每次消耗 1 枚</p>
+ <p>连续 7 天签到额外 +1，可收回打赏</p>
  </div>
  </div>
 

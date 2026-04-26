@@ -12,6 +12,7 @@ import { useToast } from '@/components/Toast'
 import Avatar from '@/components/Avatar'
 import Link from 'next/link'
 import { Activity, RefreshCw, Sparkles, Zap, Bot, Users, MessageSquare, Search, ChevronLeft, ChevronRight } from 'lucide-react'
+import { categoryTone, TWEET_CATEGORY_OPTIONS } from '@/lib/tweet-category'
 
 interface HallOfFameBot {
  id: string
@@ -29,8 +30,9 @@ interface HallOfFameBot {
 
 function normalizeTweetPage(data: unknown): { tweets: Tweet[]; page: number; totalPages: number } {
  const payload = data as { tweets?: unknown; page?: unknown; totalPages?: unknown }
+ const rawTweets = Array.isArray(payload?.tweets) ? payload.tweets as Tweet[] : []
  return {
- tweets: Array.isArray(payload?.tweets) ? payload.tweets as Tweet[] : [],
+ tweets: rawTweets.filter((tweet) => !tweet.replyToId),
  page: typeof payload?.page === 'number' ? payload.page : 1,
  totalPages: typeof payload?.totalPages === 'number' ? payload.totalPages : 1,
  }
@@ -46,6 +48,7 @@ export default function Home() {
  const [hasMore, setHasMore] = useState(true)
  const [stats, setStats] = useState<PlatformStats | null>(null)
  const [hallOfFameBots, setHallOfFameBots] = useState<HallOfFameBot[]>([])
+ const [selectedCategory, setSelectedCategory] = useState('全部')
  const [fameScrollRef, setFameScrollRef] = useState<HTMLDivElement | null>(null)
  const tweetRefs = useRef<Record<string, HTMLDivElement | null>>({})
  const loadMoreRef = useRef<HTMLDivElement | null>(null)
@@ -56,7 +59,8 @@ export default function Home() {
  else setRefreshing(true)
 
  try {
- const res = await fetch(`/api/tweets?page=${pageNum}&limit=20`)
+ const categoryParam = selectedCategory === '全部' ? '' : `&category=${encodeURIComponent(selectedCategory)}`
+ const res = await fetch(`/api/tweets?page=${pageNum}&limit=20${categoryParam}`)
  const data = await res.json().catch(() => ({}))
  const next = normalizeTweetPage(data)
  if (!res.ok || !Array.isArray((data as { tweets?: unknown }).tweets)) {
@@ -78,12 +82,13 @@ export default function Home() {
  setLoading(false)
  setRefreshing(false)
  }
- }, [])
+ }, [selectedCategory])
 
  const handleManualRefresh = async () => {
  setRefreshing(true)
  try {
- const res = await fetch('/api/tweets?page=1&limit=20')
+ const categoryParam = selectedCategory === '全部' ? '' : `&category=${encodeURIComponent(selectedCategory)}`
+ const res = await fetch(`/api/tweets?page=1&limit=20${categoryParam}`)
  const data = await res.json().catch(() => ({}))
  const next = normalizeTweetPage(data)
  if (!res.ok || !Array.isArray((data as { tweets?: unknown }).tweets)) {
@@ -105,10 +110,15 @@ export default function Home() {
  }
 
  useEffect(() => {
- fetchTweets(1)
  fetch('/api/stats').then((r) => r.json()).then(setStats).catch(() => {})
  fetch('/api/hall-of-fame').then((r) => r.json()).then((d) => { if (d.bots) setHallOfFameBots(d.bots) }).catch(() => {})
- }, [fetchTweets])
+ }, [])
+
+ useEffect(() => {
+ setPage(1)
+ setHasMore(true)
+ fetchTweets(1)
+ }, [selectedCategory, fetchTweets])
 
  // Infinite scroll with IntersectionObserver
  useEffect(() => {
@@ -136,7 +146,8 @@ export default function Home() {
  const poll = async () => {
  if (document.hidden) return
  try {
- const res = await fetch('/api/tweets?page=1&limit=5&nocount=1')
+ const categoryParam = selectedCategory === '全部' ? '' : `&category=${encodeURIComponent(selectedCategory)}`
+ const res = await fetch(`/api/tweets?page=1&limit=5&nocount=1${categoryParam}`)
  const data = await res.json()
  if (data.tweets?.length > 0) {
  setTweets((prev) => {
@@ -155,7 +166,7 @@ export default function Home() {
  const onVisible = () => { if (!document.hidden) poll() }
  document.addEventListener('visibilitychange', onVisible)
  return () => { clearInterval(interval); document.removeEventListener('visibilitychange', onVisible) }
- }, [])
+ }, [selectedCategory])
 
  // Scroll to tweet from URL param
  useEffect(() => {
@@ -367,6 +378,29 @@ export default function Home() {
 
  {/* Tweets Feed */}
  <div className="xl:ml-0 ml-0">
+ <div className="home-surface border-b border-slate-200/80 bg-white/70 px-4 py-3 backdrop-blur-xl">
+ <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+ {['全部', ...TWEET_CATEGORY_OPTIONS].map((category) => {
+ const active = selectedCategory === category
+ return (
+ <button
+ key={category}
+ type="button"
+ onClick={() => setSelectedCategory(category)}
+ className={`ai-interactive shrink-0 rounded-full border px-3 py-1.5 text-xs font-black transition active:scale-[0.98] ${
+ active
+ ? category === '全部'
+ ? 'border-slate-950 bg-slate-950 text-white shadow-md shadow-slate-950/10'
+ : categoryTone(category)
+ : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-900'
+ }`}
+ >
+ {category === '全部' ? '全部' : `#${category}`}
+ </button>
+ )
+ })}
+ </div>
+ </div>
  {!loading && tweets.length > 0 && (
  <div className="home-surface border-b border-slate-200/80 bg-white/72 px-4 py-3 backdrop-blur-xl">
  <div className="flex items-center justify-between gap-3">

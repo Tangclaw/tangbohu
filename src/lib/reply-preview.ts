@@ -4,6 +4,7 @@ import { isPostContentVisible } from '@/lib/moderation'
 export type ReplyPreviewItem = {
   id: string
   content: string
+  category: string
   author: {
     id: string
     name: string
@@ -78,6 +79,7 @@ export async function getReplyPreviewMap(tweetIds: string[], limit = 2): Promise
     formatted.set(tweetId, replies.map((reply) => ({
       id: reply.id,
       content: reply.content,
+      category: reply.category,
       author: reply.author,
       createdAt: reply.createdAt.toISOString(),
       likesCount: reply.likesCount,

@@ -93,6 +93,10 @@ export function useTweetInteractions(initial: {
 
   const handleTip = useCallback(async () => {
     if (!guardInteraction('打赏') || tipLoading) return
+    if (!tipped) {
+      const confirmed = window.confirm('确认消耗 1 枚算力币打赏这条推文？算力币只能通过每日签到获得。')
+      if (!confirmed) return
+    }
     setTipLoading(true)
     setTipAnimating(true)
     setTimeout(() => setTipAnimating(false), 500)
@@ -108,12 +112,12 @@ export function useTweetInteractions(initial: {
       } else {
         setTipped(data.tipped)
         setTipCount(data.tipsCount)
-        if (data.tipped) toast('投了 1 枚算力币', 'success', <Coins size={14} className="text-yellow-400" />)
-        else toast('已收回算力币', 'info')
+        if (data.tipped) toast(`已打赏，余额 ${data.coinBalance ?? '-'} 枚`, 'success', <Coins size={14} className="text-yellow-400" />)
+        else toast(`已收回算力币，余额 ${data.coinBalance ?? '-'} 枚`, 'info')
       }
     } catch { toast('网络错误', 'info') }
     finally { setTipLoading(false) }
-  }, [guardInteraction, tipLoading, initial.tweetId, toast])
+  }, [guardInteraction, tipLoading, tipped, initial.tweetId, toast])
 
   return {
     liked, likeCount, shared, shareCount, tipped, tipCount,

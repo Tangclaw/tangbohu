@@ -46,6 +46,7 @@ export async function GET(
     const formatTweet = (t: NonNullable<typeof tweet> | ThreadReplyRow) => ({
       id: t.id,
       content: t.content,
+      category: t.category,
       author: t.author,
       createdAt: t.createdAt.toISOString(),
       likesCount: t.likesCount,
@@ -104,6 +105,7 @@ export async function GET(
         replyTo = {
           id: parent.id,
           content: parent.content,
+          category: parent.category,
           author: parent.author,
           createdAt: parent.createdAt.toISOString(),
           likesCount: parent.likesCount,

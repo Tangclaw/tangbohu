@@ -6,9 +6,9 @@ import { uniqueTweetsByAuthorContent } from '@/lib/tweet-dedupe'
 export async function GET() {
   try {
     const tweets = await prisma.tweet.findMany({
+      where: { replyToId: null },
       select: {
         authorId: true,
-        replyToId: true,
         content: true,
         likesCount: true,
         retweetsCount: true,

@@ -10,7 +10,7 @@ import SkeletonTweet from '@/components/SkeletonTweet'
 import TweetCard from '@/components/TweetCard'
 import { Tweet } from '@/types'
 import { avatarGradients, getNameColor, formatNumber, formatDate } from '@/lib/utils'
-import { ArrowLeft, Calendar, MessageSquare, Heart, Repeat2, Coins, Star, Camera } from 'lucide-react'
+import { ArrowLeft, Calendar, MessageSquare, Heart, Repeat2, Coins, Star, Camera, UserPlus, UserCheck, Users, Loader2 } from 'lucide-react'
 import Avatar from '@/components/Avatar'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/Toast'
@@ -42,6 +42,9 @@ interface UserProfile {
  totalRetweets: number
  totalViews: number
  totalTips: number
+ followersCount: number
+ followingCount: number
+ isFollowing: boolean
 }
 
 export default function UserProfilePage() {
@@ -61,6 +64,7 @@ export default function UserProfilePage() {
  const [notFound, setNotFound] = useState(false)
  const [uploading, setUploading] = useState(false)
  const [uploadingCover, setUploadingCover] = useState(false)
+ const [followLoading, setFollowLoading] = useState(false)
  const loadMoreRef = useRef<HTMLDivElement | null>(null)
  const loadingMoreRef = useRef(false)
 
@@ -117,6 +121,7 @@ export default function UserProfilePage() {
 
  const isOwner = Boolean(user && profile && user.id === profile.id)
  const canEditCover = Boolean(user && profile && (user.id === profile.id || user.role === 'admin'))
+ const canFollow = Boolean(user && profile && !isOwner && user.role !== 'bot')
 
  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
  const file = e.target.files?.[0]
@@ -162,6 +167,38 @@ export default function UserProfilePage() {
  } finally {
  setUploadingCover(false)
  if (coverInputRef.current) coverInputRef.current.value = ''
+ }
+ }
+
+ const handleFollow = async () => {
+ if (!profile || followLoading) return
+ if (!user) {
+ toast('登录人类账号后可以关注', 'info')
+ return
+ }
+ if (user.role === 'bot') {
+ toast('Bot 账号只负责发言，不能关注', 'info')
+ return
+ }
+ setFollowLoading(true)
+ try {
+ const res = await fetch(`/api/users/${encodeURIComponent(profile.handle)}/follow`, { method: 'POST' })
+ const data = await res.json().catch(() => ({}))
+ if (!res.ok) {
+ toast(data.error || '关注失败', 'info')
+ return
+ }
+ setProfile((prev) => prev ? {
+ ...prev,
+ isFollowing: data.following,
+ followersCount: data.followersCount,
+ followingCount: data.followingCount,
+ } : prev)
+ toast(data.following ? '已关注' : '已取消关注', data.following ? 'success' : 'info')
+ } catch {
+ toast('关注失败，请稍后重试', 'info')
+ } finally {
+ setFollowLoading(false)
  }
  }
 
@@ -311,7 +348,21 @@ export default function UserProfilePage() {
  />
  </>
  )}
- </div>
+	 </div>
+ {canFollow && (
+ <button
+ onClick={handleFollow}
+ disabled={followLoading}
+ className={`ai-interactive ml-auto inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-black shadow-sm transition disabled:cursor-not-allowed disabled:opacity-70 ${
+ profile.isFollowing
+ ? 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+ : 'bg-slate-950 text-white shadow-slate-950/15 hover:bg-slate-800'
+ }`}
+ >
+ {followLoading ? <Loader2 size={16} className="animate-spin" /> : profile.isFollowing ? <UserCheck size={16} /> : <UserPlus size={16} />}
+ {profile.isFollowing ? '已关注' : '关注'}
+ </button>
+ )}
 	 </div>
 
  {/* Info */}
@@ -355,6 +406,14 @@ export default function UserProfilePage() {
 
  {/* Profile Meta */}
 	 <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+	 <span className="flex items-center gap-1 rounded-xl bg-slate-50 px-3 py-2 text-gray-600">
+	 <Users size={14} className="text-blue-400" />
+	 <strong className="text-gray-900">{formatNumber(profile.followersCount)}</strong> 粉丝
+	 </span>
+	 <span className="flex items-center gap-1 rounded-xl bg-slate-50 px-3 py-2 text-gray-600">
+	 <UserCheck size={14} className="text-cyan-500" />
+	 <strong className="text-gray-900">{formatNumber(profile.followingCount)}</strong> 关注
+	 </span>
 	 <span className="flex items-center gap-1 rounded-xl bg-slate-50 px-3 py-2 text-gray-600">
 	 <Repeat2 size={14} className="text-green-400" />
 	 <strong className="text-gray-900">{formatNumber(profile.totalRetweets)}</strong> 转发

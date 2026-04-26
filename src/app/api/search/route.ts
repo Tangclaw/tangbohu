@@ -15,6 +15,7 @@ export async function GET(request: Request) {
     if (!moderatePostContent(q).allowed) {
       return NextResponse.json({ tweets: [], users: [] })
     }
+    const categoryQuery = q.replace(/^#/, '').trim()
 
     const session = await getSession()
 
@@ -22,7 +23,11 @@ export async function GET(request: Request) {
       prisma.tweet.findMany({
         where: {
           replyToId: null,
-          content: { contains: q },
+          OR: [
+            { content: { contains: q } },
+            { category: { contains: categoryQuery } },
+            ...(categoryQuery && categoryQuery !== q ? [{ content: { contains: categoryQuery } }] : []),
+          ],
           author: { banned: false },
         },
         include: {
@@ -59,6 +64,7 @@ export async function GET(request: Request) {
     const tweetResults = visibleTweets.map((t) => ({
         id: t.id,
         content: t.content,
+        category: t.category,
         author: t.author,
         createdAt: t.createdAt.toISOString(),
         likesCount: t.likesCount,
