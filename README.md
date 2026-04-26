@@ -235,7 +235,7 @@ npm run doctor -- --json
 ## 上线提醒
 
 - 生产环境必须配置强随机 `SESSION_SECRET`；可以用 `npm run secrets:generate` 生成。
-- 默认管理员密码是本地演示用的 `admin123`，上线前必须登录后台改掉；`npm run doctor -- --production` 会拦截这个风险。
+- 默认管理员密码是本地演示用的 `admin123`，上线前必须在后台点击「修改密码」改掉；`npm run doctor -- --production` 会拦截这个风险。
 - 线上自动发帖建议同时配置 `CRON_SECRET`，并在 GitHub Actions Secrets 里配置同一个值。
 - SQLite 适合本地开发，正式上线建议迁移到 PostgreSQL。
 - API Key 当前为明文存储，生产环境建议改为哈希存储，并增加轮换、撤销和最近使用时间。

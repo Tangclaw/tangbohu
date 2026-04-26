@@ -9,7 +9,7 @@ import {
   ShieldCheck, Ban, RefreshCw, Star, Plus, Pencil, Send,
   Trash2, RotateCcw, Command, Eye, X, Copy, Check,
   MoreHorizontal, Camera, Sparkles, Search, CalendarDays,
-  AlertTriangle, FileWarning, Radio,
+  AlertTriangle, FileWarning, Radio, KeyRound,
 } from 'lucide-react'
 import Navbar from '@/components/Navbar'
 import { getNameColor } from '@/lib/utils'
@@ -204,7 +204,7 @@ interface AutoPostFreshness {
   activeBots24h: number
 }
 
-type ModalType = 'createBot' | 'editUser' | 'postTweet' | 'sendCommand' | 'viewCommands' | 'confirmReset' | 'confirmDelete' | 'confirmBatchReset' | 'confirmBatchDelete' | 'createEvent' | 'confirmDeleteEvent' | 'confirmDeleteModerationTweet' | null
+type ModalType = 'createBot' | 'editUser' | 'postTweet' | 'sendCommand' | 'viewCommands' | 'confirmReset' | 'confirmDelete' | 'confirmBatchReset' | 'confirmBatchDelete' | 'createEvent' | 'changePassword' | 'confirmDeleteEvent' | 'confirmDeleteModerationTweet' | null
 
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth()
@@ -278,6 +278,9 @@ export default function AdminPage() {
 	  const [formCommandType, setFormCommandType] = useState('post')
 	  const [formCommandPayload, setFormCommandPayload] = useState('')
 	  const [formBotSource, setFormBotSource] = useState<'official' | 'player'>('official')
+  const [formCurrentPassword, setFormCurrentPassword] = useState('')
+  const [formNewPassword, setFormNewPassword] = useState('')
+  const [formConfirmPassword, setFormConfirmPassword] = useState('')
 	  const [formEventTitle, setFormEventTitle] = useState('')
 	  const [formEventDescription, setFormEventDescription] = useState('')
 	  const [formEventCategory, setFormEventCategory] = useState('热点')
@@ -563,6 +566,39 @@ export default function AdminPage() {
     setModerationTesting(false)
   }
 
+  const handleChangePassword = async () => {
+    if (formNewPassword !== formConfirmPassword) {
+      toast('两次新密码不一致', 'info')
+      return
+    }
+    if (formNewPassword.length < 8) {
+      toast('新密码至少需要 8 个字符', 'info')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/auth/password', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentPassword: formCurrentPassword,
+          newPassword: formNewPassword,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast(data.error || '修改密码失败', 'info')
+      } else {
+        closeModal()
+        toast('密码已更新', 'success')
+      }
+    } catch {
+      toast('修改密码失败', 'info')
+    }
+    setSubmitting(false)
+  }
+
 	  const fetchUsers = useCallback(async () => {
 	    setLoading(true)
 	    const params = new URLSearchParams({ page: String(userPage), limit: '20' })
@@ -675,6 +711,9 @@ export default function AdminPage() {
 	    setFormCommandType('post')
 	    setFormCommandPayload('')
 	    setFormBotSource('official')
+    setFormCurrentPassword('')
+    setFormNewPassword('')
+    setFormConfirmPassword('')
 	    setFormEventTitle('')
 	    setFormEventDescription('')
 	    setFormEventCategory('热点')
@@ -1251,6 +1290,12 @@ export default function AdminPage() {
 	              </div>
 	            </div>
 	            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => { setFormCurrentPassword(''); setFormNewPassword(''); setFormConfirmPassword(''); setModal('changePassword') }}
+                className="ai-interactive flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50"
+              >
+                <KeyRound size={16} /> 修改密码
+              </button>
 	              <button
 	                onClick={() => { setFormName(''); setFormHandle(''); setFormPassword(''); setFormBio(''); setFormAvatar('🤖'); setFormBotSource('official'); setCreateAvatarPreview(null); setCreateAvatarFile(null); setCreatedApiKey(null); setModal('createBot') }}
 	                className="ai-interactive flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-emerald-500/18 hover:bg-emerald-600"
@@ -2211,6 +2256,59 @@ export default function AdminPage() {
 	                </div>
 	              </>
 	            )}
+
+            {/* ===== Change Password Modal ===== */}
+            {modal === 'changePassword' && (
+              <>
+                <div className="mb-5">
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-100 bg-cyan-50 text-cyan-600">
+                    <KeyRound size={22} />
+                  </div>
+                  <h3 className="text-lg font-black text-slate-950">修改当前账号密码</h3>
+                  <p className="mt-1 text-sm text-slate-500">上线前请先把默认管理员密码换成强密码。</p>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-bold text-slate-500">当前密码</label>
+                    <input
+                      type="password"
+                      value={formCurrentPassword}
+                      onChange={(e) => setFormCurrentPassword(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/10"
+                      autoComplete="current-password"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-bold text-slate-500">新密码</label>
+                    <input
+                      type="password"
+                      value={formNewPassword}
+                      onChange={(e) => setFormNewPassword(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/10"
+                      placeholder="至少 8 个字符"
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-bold text-slate-500">确认新密码</label>
+                    <input
+                      type="password"
+                      value={formConfirmPassword}
+                      onChange={(e) => setFormConfirmPassword(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/10"
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  <button
+                    onClick={handleChangePassword}
+                    disabled={submitting || !formCurrentPassword || !formNewPassword || !formConfirmPassword}
+                    className="w-full rounded-xl bg-slate-950 py-2.5 text-sm font-black text-white transition hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {submitting ? '更新中...' : '更新密码'}
+                  </button>
+                </div>
+              </>
+            )}
 
 	            {/* ===== Create Bot Modal ===== */}
 	            {modal === 'createBot' && !createdApiKey && (
