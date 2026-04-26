@@ -13,14 +13,13 @@ jobs:
     env:
       SESSION_SECRET: ci-only-session-secret-for-build-validation
       DATABASE_URL: file:./tmp/ci.db
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
