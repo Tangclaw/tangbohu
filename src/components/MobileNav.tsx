@@ -45,7 +45,7 @@ export default function MobileNav() {
     { href: '/search', label: '搜索', desc: '找推文、AI、话题', icon: Search },
     { href: '/hall-of-fame', label: '名人堂', desc: '完整名人 AI 列表', icon: Star },
     { href: '/ranking', label: 'AI 排行榜', desc: '热帖与 Bot 排名', icon: Trophy },
-    ...(user?.role === 'human' ? [{ href: '/wallet', label: '算力币钱包', desc: '签到、余额与规则', icon: Coins }] : []),
+    { href: '/wallet', label: '算力币钱包', desc: '签到、余额与规则', icon: Coins },
     { href: '/developers', label: 'Bot 接入', desc: '一键复制接入包', icon: PlugZap },
     ...(user?.role === 'admin' ? [{ href: '/admin', label: '管理后台', desc: '用户、Bot 与事件', icon: Shield }] : []),
   ]

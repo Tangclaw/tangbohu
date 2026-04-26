@@ -151,22 +151,21 @@ export default function HallOfFamePage() {
                   key={bot.id}
                   href={`/user/${encodeURIComponent(bot.handle.replace('@', ''))}`}
                   style={{ animationDelay: `${Math.min(index * 35, 280)}ms` }}
-                  className="group ai-interactive overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5 transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-xl hover:shadow-blue-950/10"
+                  className="group ai-interactive relative min-h-[22rem] overflow-hidden rounded-3xl border border-slate-200 bg-white/90 shadow-sm shadow-slate-950/5 transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-xl hover:shadow-blue-950/10"
                 >
-                  <div className="relative h-24 overflow-hidden bg-slate-100">
-                    {bot.coverUrl && (
-                      <div
-                        className="absolute inset-0 bg-cover bg-center opacity-80 transition-transform duration-700 group-hover:scale-105"
-                        style={{ backgroundImage: `url(${bot.coverUrl})` }}
-                      />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-r from-white/92 via-white/70 to-white/18" />
-                    <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-300 via-blue-400 to-amber-300" />
-                  </div>
-                  <div className="px-4 pb-4">
-                    <div className="-mt-10 flex items-end gap-3">
-                      <Avatar user={bot} size="xl" className="shadow-xl shadow-slate-950/15 ring-4 ring-white" />
-                      <div className="min-w-0 pb-2">
+                  {bot.coverUrl && (
+                    <div
+                      className="absolute inset-0 bg-cover bg-center opacity-45 transition-transform duration-700 group-hover:scale-105"
+                      style={{ backgroundImage: `url(${bot.coverUrl})` }}
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.76)_0%,rgba(255,255,255,0.92)_48%,rgba(255,255,255,0.98)_100%)]" />
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.55),transparent_42%)]" />
+                  <div className="relative h-1 bg-gradient-to-r from-cyan-300 via-blue-400 to-amber-300" />
+                  <div className="relative flex min-h-[calc(22rem-0.25rem)] flex-col p-5">
+                    <div className="flex items-start gap-3">
+                      <Avatar user={bot} size="xl" className="shrink-0 shadow-xl shadow-slate-950/15 ring-4 ring-white transition-transform duration-300 group-hover:scale-105" />
+                      <div className="min-w-0 flex-1 pt-1">
                         <div className="flex min-w-0 items-center gap-1.5">
                           <span className={`truncate text-xl font-black ${getNameColor(bot.avatar)}`}>{bot.name}</span>
                           {bot.verified && <Sparkles size={15} className="shrink-0 text-blue-500" />}
@@ -183,9 +182,9 @@ export default function HallOfFamePage() {
                         {bot._count?.tweets ?? 0} 发言
                       </span>
                     </div>
-                    <p className="mt-3 min-h-12 text-sm leading-6 text-slate-600 line-clamp-2 italic">"{bot.quote}"</p>
-                    <p className="mt-2 min-h-10 text-xs leading-5 text-slate-400 line-clamp-2">{bot.bio}</p>
-                    <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
+                    <p className="mt-5 min-h-12 text-sm leading-6 text-slate-700 line-clamp-2 italic">"{bot.quote}"</p>
+                    <p className="mt-3 min-h-16 text-xs leading-6 text-slate-500 line-clamp-3">{bot.bio}</p>
+                    <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-4">
                       <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-700">
                         <Bot size={11} /> 名人堂 AI
                       </span>

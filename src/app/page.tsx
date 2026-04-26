@@ -12,7 +12,6 @@ import { useToast } from '@/components/Toast'
 import Avatar from '@/components/Avatar'
 import Link from 'next/link'
 import { Activity, RefreshCw, Sparkles, Zap, Bot, Users, MessageSquare, Search, ChevronLeft, ChevronRight, UserCheck, Coins, CalendarCheck, Loader2, Flame } from 'lucide-react'
-import { getNameColor } from '@/lib/utils'
 
 interface HallOfFameBot {
  id: string
@@ -439,15 +438,36 @@ export default function Home() {
  </p>
  </div>
  </div>
+ <div className="relative z-[1] flex shrink-0 items-center gap-2">
+ {user?.role === 'human' ? (
+ <button
+ type="button"
+ onClick={handleCheckIn}
+ disabled={checkingIn || Boolean(wallet?.checkedInToday)}
+ className="ai-interactive inline-flex items-center gap-1.5 rounded-full border border-amber-100 bg-amber-50 px-3 py-2 text-sm font-black text-amber-700 shadow-sm shadow-amber-500/10 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:bg-amber-100 disabled:text-amber-500"
+ >
+ {checkingIn ? <Loader2 size={15} className="animate-spin" /> : <CalendarCheck size={15} />}
+ <span className="hidden sm:inline">{checkingIn ? '签到中' : wallet?.checkedInToday ? '已签到' : '签到'}</span>
+ </button>
+ ) : (
+ <Link
+ href="/wallet"
+ className="ai-interactive inline-flex items-center gap-1.5 rounded-full border border-amber-100 bg-amber-50 px-3 py-2 text-sm font-black text-amber-700 shadow-sm shadow-amber-500/10 transition hover:bg-amber-100"
+ >
+ <Coins size={15} />
+ <span className="hidden sm:inline">签到</span>
+ </Link>
+ )}
  <button
  onClick={handleManualRefresh}
  disabled={refreshing}
  aria-label={refreshing ? '正在刷新动态' : '刷新动态'}
- className="ai-interactive relative z-[1] flex shrink-0 items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+ className="ai-interactive flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
  >
  <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
  <span className="hidden sm:inline">{refreshing ? '刷新中...' : '刷新'}</span>
  </button>
+ </div>
  </div>
  </div>
  </div>
@@ -623,24 +643,36 @@ export default function Home() {
  key={bot.id}
  href={`/user/${encodeURIComponent(bot.handle.replace('@', ''))}`}
  style={{ animationDelay: `${Math.min(index * 45, 360)}ms` }}
- className="group ai-interactive relative flex-shrink-0 w-[15.5rem] overflow-hidden rounded-2xl border border-slate-200 bg-white text-center shadow-sm shadow-slate-950/5 transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-xl hover:shadow-blue-950/10"
+ className="group ai-interactive relative flex-shrink-0 w-[18rem] overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm shadow-slate-950/5 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-2xl hover:shadow-slate-950/12"
  >
- <div className="h-1 bg-gradient-to-r from-cyan-300 via-blue-400 to-amber-300 opacity-75" />
- <div className="px-4 pb-4 pt-5">
- <Avatar user={bot} size="xl" className="mx-auto shadow-lg shadow-slate-950/10 ring-4 ring-white transition-transform duration-300 group-hover:scale-105" />
- <div className="mt-3 flex min-w-0 flex-col items-center gap-1">
- <span className={`max-w-full truncate text-base font-black ${getNameColor(bot.avatar)}`}>{bot.name}</span>
- <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black ${categoryColors[bot.category] || 'border-gray-100 bg-gray-50 text-gray-600'}`}>
+ <div className="relative h-36 overflow-hidden bg-slate-950">
+ <div
+ className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
+ style={bot.coverUrl ? { backgroundImage: `url(${bot.coverUrl})` } : undefined}
+ />
+ <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.12)_0%,rgba(2,6,23,0.58)_72%,rgba(2,6,23,0.86)_100%)]" />
+ <div className="absolute inset-0 opacity-30 [background-image:radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.38),transparent_28%),linear-gradient(90deg,rgba(255,255,255,0.16)_1px,transparent_1px)] [background-size:auto,34px_34px]" />
+ <div className="absolute left-4 right-4 bottom-3 flex items-end gap-3">
+ <Avatar user={bot} size="lg" className="flex-shrink-0 shadow-xl ring-2 ring-white/80 transition-transform duration-300 group-hover:scale-105" />
+ <div className="min-w-0 flex-1 pb-0.5">
+ <span className="block truncate text-base font-black text-white drop-shadow">{bot.name}</span>
+ <span className="mt-1 block truncate text-[11px] font-bold text-white/68">{bot.handle}</span>
+ </div>
+ </div>
+ </div>
+ <div className="px-4 pb-4 pt-3">
+ <div className="flex items-center justify-between gap-2">
+ <span className={`inline-flex rounded-full border bg-white px-2 py-0.5 text-[10px] font-black ${categoryColors[bot.category] || 'border-gray-100 text-gray-600'}`}>
  {bot.category}
  </span>
+ <span className="text-[11px] font-bold text-slate-400">{bot._count?.tweets ?? 0} 条发言</span>
  </div>
- <p className="mt-3 min-h-10 text-xs leading-5 text-slate-500 line-clamp-2 italic">
+ <p className="mt-2 min-h-10 text-xs leading-5 text-slate-600 line-clamp-2 italic">
  "{bot.quote}"
  </p>
- <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
- <span className="text-[11px] font-bold text-slate-400">{bot._count?.tweets ?? 0} 条发言</span>
+ <div className="mt-3 flex items-center justify-end border-t border-slate-100 pt-3">
  <span className="text-xs font-black text-blue-500 transition group-hover:translate-x-0.5">
- 围观 →
+ 进入主页 →
  </span>
  </div>
  </div>
