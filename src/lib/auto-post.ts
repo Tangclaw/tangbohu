@@ -43,8 +43,15 @@ type ReplyCreationStats = {
   fallbackCount: number
   modelCount: number
   lastError: string
+  tweetId?: string
   content?: string
   author?: BotPersona
+}
+
+type DebateTurn = {
+  id: string
+  author: BotPersona
+  content: string
 }
 
 export interface AutoPostRunResult {
@@ -690,10 +697,44 @@ function pickReplyBots(
     .map((item) => item.candidate)
 }
 
-async function refreshRootReplyCount(rootId: string) {
+async function getDescendantReplies(rootId: string, maxDepth = 6) {
+  const replies: Array<{
+    id: string
+    authorId: string
+    content: string
+    createdAt: Date
+    author: BotPersona
+  }> = []
+  let frontier = [rootId]
+  for (let depth = 0; depth < maxDepth && frontier.length > 0; depth += 1) {
+    const batch = await prisma.tweet.findMany({
+      where: { replyToId: { in: frontier } },
+      select: {
+        id: true,
+        authorId: true,
+        content: true,
+        createdAt: true,
+        author: { select: { id: true, name: true, handle: true, bio: true, category: true, quote: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+    replies.push(...batch)
+    frontier = batch.map((reply) => reply.id)
+  }
+  return replies
+}
+
+async function refreshDirectReplyCount(tweetId: string) {
+  await prisma.tweet.update({
+    where: { id: tweetId },
+    data: { repliesCount: await prisma.tweet.count({ where: { replyToId: tweetId } }) },
+  })
+}
+
+async function refreshConversationReplyCount(rootId: string) {
   await prisma.tweet.update({
     where: { id: rootId },
-    data: { repliesCount: await prisma.tweet.count({ where: { replyToId: rootId } }) },
+    data: { repliesCount: (await getDescendantReplies(rootId)).length },
   })
 }
 
@@ -703,8 +744,9 @@ async function createReplyForTarget(
   target: ReplyTarget,
   replier: BotPersona,
   seed: number,
-  previousTurn?: { author: BotPersona; content: string }
+  previousTurn?: DebateTurn
 ): Promise<ReplyCreationStats> {
+  const parentId = previousTurn?.id || target.id
   const replyFallback = previousTurn
     ? fallbackDebateReply(replier, target.author, previousTurn.author, previousTurn.content, seed)
     : fallbackReply(replier, target.author, target.content, seed)
@@ -720,7 +762,7 @@ async function createReplyForTarget(
     topicId: topic.id,
     kind: 'reply',
     botId: replier.id,
-    replyToId: target.id,
+    replyToId: parentId,
   })
   if (!visibleReply.ok) {
     return {
@@ -734,17 +776,18 @@ async function createReplyForTarget(
   }
   if (visibleReply.source === 'template' && replyGenerated.source === 'model') fallbackCount += 1
 
-  await prisma.tweet.create({
+  const created = await prisma.tweet.create({
     data: {
       authorId: replier.id,
       content: await ensureUniqueContent(replier.id, visibleReply.content, seed),
-      replyToId: target.id,
+      replyToId: parentId,
       likesCount: randomInt(0, 10),
       retweetsCount: randomInt(0, 4),
       viewsCount: randomInt(40, 240),
       tipsCount: randomInt(0, 2),
     },
   })
+  await refreshDirectReplyCount(parentId)
 
   return {
     createdReplies: 1,
@@ -753,6 +796,7 @@ async function createReplyForTarget(
     fallbackCount,
     modelCount,
     lastError,
+    tweetId: created.id,
     content: visibleReply.content,
     author: replier,
   }
@@ -803,18 +847,10 @@ async function catchUpRecentRootReplies(
   for (const root of roots) {
     if (stats.createdReplies >= AUTO_POST_CATCH_UP_REPLY_LIMIT) break
 
-    const existingReplies = await prisma.tweet.findMany({
-      where: { replyToId: root.id },
-      select: {
-        authorId: true,
-        content: true,
-        author: { select: { id: true, name: true, handle: true, bio: true, category: true, quote: true } },
-      },
-      orderBy: { createdAt: 'asc' },
-    })
+    const existingReplies = await getDescendantReplies(root.id)
     const gap = schedule.repliesPerPost - existingReplies.length
     if (gap <= 0) {
-      if (root.repliesCount !== existingReplies.length) await refreshRootReplyCount(root.id)
+      if (root.repliesCount !== existingReplies.length) await refreshConversationReplyCount(root.id)
       continue
     }
 
@@ -822,8 +858,9 @@ async function catchUpRecentRootReplies(
     const target: ReplyTarget = { id: root.id, content: root.content, author: root.author }
     const limit = Math.min(gap, AUTO_POST_CATCH_UP_REPLY_LIMIT - stats.createdReplies)
     const replyBots = pickReplyBots(allReplyBots, target, limit, seedBase + stats.createdReplies * 41, excludedAuthorIds)
-    let previousTurn: { author: BotPersona; content: string } | undefined = existingReplies.length > 0
+    let previousTurn: DebateTurn | undefined = existingReplies.length > 0
       ? {
+        id: existingReplies[existingReplies.length - 1].id,
         author: existingReplies[existingReplies.length - 1].author,
         content: existingReplies[existingReplies.length - 1].content,
       }
@@ -839,10 +876,12 @@ async function catchUpRecentRootReplies(
         previousTurn
       )
       addReplyStats(stats, replyStats)
-      if (replyStats.author && replyStats.content) previousTurn = { author: replyStats.author, content: replyStats.content }
+      if (replyStats.tweetId && replyStats.author && replyStats.content) {
+        previousTurn = { id: replyStats.tweetId, author: replyStats.author, content: replyStats.content }
+      }
     }
 
-    await refreshRootReplyCount(root.id)
+    await refreshConversationReplyCount(root.id)
   }
 
   return stats
@@ -973,7 +1012,7 @@ async function runSingleSchedule(
 
     const target: ReplyTarget = { id: root.id, content, author: bot }
     const replyBots = pickReplyBots(allReplyBots, target, schedule.repliesPerPost, seed)
-    let previousTurn: { author: BotPersona; content: string } | undefined
+    let previousTurn: DebateTurn | undefined
 
     for (let replyIndex = 0; replyIndex < replyBots.length; replyIndex += 1) {
       const shouldDebate = replyIndex >= 2 || (replyIndex >= 1 && seed % 3 === 0)
@@ -991,10 +1030,12 @@ async function runSingleSchedule(
       fallbackCount += replyStats.fallbackCount
       modelCount += replyStats.modelCount
       if (replyStats.lastError) lastError = replyStats.lastError
-      if (replyStats.author && replyStats.content) previousTurn = { author: replyStats.author, content: replyStats.content }
+      if (replyStats.tweetId && replyStats.author && replyStats.content) {
+        previousTurn = { id: replyStats.tweetId, author: replyStats.author, content: replyStats.content }
+      }
     }
 
-    await refreshRootReplyCount(root.id)
+    await refreshConversationReplyCount(root.id)
   }
 
   const catchUpStats = await catchUpRecentRootReplies(schedule, primaryTopic, allReplyBots, nowMs + schedule.lastRunCount * 97)

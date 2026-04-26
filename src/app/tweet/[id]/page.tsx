@@ -22,6 +22,7 @@ export default function TweetDetailPage() {
   const [replyTo, setReplyTo] = useState<Tweet | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [expandedThreads, setExpandedThreads] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     const fetchTweet = async () => {
@@ -44,6 +45,10 @@ export default function TweetDetailPage() {
     fetchTweet()
   }, [tweetId])
 
+  useEffect(() => {
+    setExpandedThreads({})
+  }, [tweetId])
+
   const interactions = useTweetInteractions({
     liked: tweet?.liked,
     likesCount: tweet?.likesCount ?? 0,
@@ -62,6 +67,55 @@ export default function TweetDetailPage() {
     { label: '算力币', value: interactions.tipCount, icon: Coins, color: 'text-amber-500', bg: 'bg-amber-50' },
     { label: '浏览', value: tweet.viewsCount, icon: Eye, color: 'text-slate-500', bg: 'bg-slate-50' },
   ] : []
+  const replyThreads = useMemo(() => {
+    if (!tweet) return []
+    const groups = new Map<string, { root: Tweet; children: Tweet[] }>()
+    const threadByReplyId = new Map<string, string>()
+
+    for (const reply of replies) {
+      const isTopLevel = !reply.replyToId || reply.replyToId === tweet.id || (reply.replyDepth ?? 0) === 0
+      if (isTopLevel) {
+        groups.set(reply.id, { root: reply, children: [] })
+        threadByReplyId.set(reply.id, reply.id)
+        continue
+      }
+
+      const parentId = reply.replyToId
+      if (!parentId) {
+        groups.set(reply.id, { root: reply, children: [] })
+        threadByReplyId.set(reply.id, reply.id)
+        continue
+      }
+
+      const threadId = threadByReplyId.get(parentId) || parentId
+      const group = groups.get(threadId)
+      if (group) {
+        group.children.push(reply)
+        threadByReplyId.set(reply.id, threadId)
+      } else {
+        groups.set(reply.id, { root: reply, children: [] })
+        threadByReplyId.set(reply.id, reply.id)
+      }
+    }
+
+    return Array.from(groups.values())
+  }, [replies, tweet])
+
+  const renderParsedContent = (content: string, linkHashtags = false) => (
+    parseTweetContent(content).map((token, i) => {
+      if (token.type === 'hashtag') {
+        return linkHashtags
+          ? <Link key={i} href={`/search?q=${encodeURIComponent(token.value)}`} className="text-blue-500 hover:underline">{token.value}</Link>
+          : <span key={i} className="text-blue-500">{token.value}</span>
+      }
+      if (token.type === 'mention') {
+        return linkHashtags
+          ? <Link key={i} href={`/user/${encodeURIComponent(token.value.slice(1))}`} className="text-blue-500 hover:underline">{token.value}</Link>
+          : <span key={i} className="text-blue-500">{token.value}</span>
+      }
+      return <span key={i}>{token.value}</span>
+    })
+  )
 
   if (notFound) {
     return (
@@ -279,53 +333,78 @@ export default function TweetDetailPage() {
                   </h2>
                   <span className="rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[10px] font-black text-blue-600">AI 对话</span>
                 </div>
-                {replies.map((reply) => {
+                {replyThreads.map(({ root, children }) => {
+                  const expanded = expandedThreads[root.id]
+                  const visibleChildren = expanded ? children : children.slice(0, 2)
+                  const hiddenCount = children.length - visibleChildren.length
+
                   return (
-                    <article
-                      key={reply.id}
-                      className="transition-colors hover:bg-cyan-50/40"
-                      style={{ marginLeft: `${Math.min(reply.replyDepth || 0, 3) * 14}px` }}
-                    >
-                      <div className="flex gap-3 p-4">
-                        <Link href={`/user/${encodeURIComponent(reply.author.handle.replace('@', ''))}`} className="flex-shrink-0">
-                          <Avatar user={reply.author} size="md" className="ring-2 ring-white/50 shadow-md transition-transform hover:scale-105" />
+                    <article key={root.id} className="border-b border-slate-100 last:border-b-0">
+                      <div className="flex gap-3 p-4 transition-colors hover:bg-cyan-50/40">
+                        <Link href={`/user/${encodeURIComponent(root.author.handle.replace('@', ''))}`} className="flex-shrink-0">
+                          <Avatar user={root.author} size="md" className="ring-2 ring-white/50 shadow-md transition-transform hover:scale-105" />
                         </Link>
                         <div className="flex-1 min-w-0">
                           <div className="mb-1 flex min-w-0 items-center gap-1.5">
-                            <Link href={`/user/${encodeURIComponent(reply.author.handle.replace('@', ''))}`} className={`truncate text-sm font-bold hover:underline ${getNameColor(reply.author.avatar)}`}>{reply.author.name}</Link>
-                            {reply.author.role === 'bot' && <Bot size={12} className="text-blue-500" />}
-                            {reply.author.hallOfFame && (
+                            <Link href={`/user/${encodeURIComponent(root.author.handle.replace('@', ''))}`} className={`truncate text-sm font-bold hover:underline ${getNameColor(root.author.avatar)}`}>{root.author.name}</Link>
+                            {root.author.role === 'bot' && <Bot size={12} className="text-blue-500" />}
+                            {root.author.hallOfFame && (
                               <span className="flex items-center gap-0.5 rounded-full border border-amber-200/80 bg-white px-1.5 py-0.5 text-[9px] font-black text-amber-700 shadow-sm shadow-amber-500/10">
                                 <Star size={8} className="text-amber-500" />名人堂
                               </span>
                             )}
                             <span className="text-gray-300">·</span>
-                            <span className="text-xs text-gray-400">{formatNumber(reply.likesCount)}</span>
+                            <span className="text-xs text-gray-400">{formatNumber(root.likesCount)}</span>
                           </div>
-                          {reply.replyToHandle && reply.replyToHandle !== tweet.author.handle && (
-                            <p className="text-[11px] text-gray-400 mb-0.5">
-                              回复 <span className="text-blue-500">{reply.replyToHandle}</span>
+                          {root.replyToHandle && root.replyToHandle !== tweet.author.handle && (
+                            <p className="mb-0.5 text-[11px] text-gray-400">
+                              回复 <span className="text-blue-500">{root.replyToHandle}</span>
                             </p>
                           )}
-                          <p className="text-sm leading-6 text-gray-900 whitespace-pre-wrap break-words">
-                            {parseTweetContent(reply.content).map((token, i) => {
-                              if (token.type === 'hashtag') return <span key={i} className="text-blue-500">{token.value}</span>
-                              if (token.type === 'mention') return <span key={i} className="text-blue-500">{token.value}</span>
-                              return <span key={i}>{token.value}</span>
-                            })}
+                          <p className="whitespace-pre-wrap break-words text-sm leading-6 text-gray-900">
+                            {renderParsedContent(root.content)}
                           </p>
                           <div className="mt-1.5 flex items-center gap-3 text-xs text-gray-400">
-                            <span className="flex items-center gap-1"><Heart size={12} /> {reply.likesCount}</span>
-                            <span className="flex items-center gap-1"><Repeat2 size={12} /> {reply.retweetsCount}</span>
-                            {reply.repliesCount > 0 ? (
-                              <>
-                                <span className="flex items-center gap-1"><MessageCircle size={12} /> {reply.repliesCount}</span>
-                                <Link href={`/tweet/${reply.id}`} className="font-bold text-blue-500 transition-colors hover:text-blue-600">查看回复</Link>
-                              </>
-                            ) : (
-                              <Link href={`/tweet/${reply.id}`} className="font-bold text-slate-400 transition-colors hover:text-blue-500">详情</Link>
+                            <span className="flex items-center gap-1"><Heart size={12} /> {root.likesCount}</span>
+                            <span className="flex items-center gap-1"><Repeat2 size={12} /> {root.retweetsCount}</span>
+                            {children.length > 0 && (
+                              <span className="flex items-center gap-1 font-bold text-blue-500"><MessageCircle size={12} /> {children.length} 条回复</span>
                             )}
                           </div>
+
+                          {children.length > 0 && (
+                            <div className="mt-3 rounded-2xl bg-slate-50/90 px-3 py-2 ring-1 ring-slate-100">
+                              <div className="space-y-3">
+                                {visibleChildren.map((child) => (
+                                  <div key={child.id} className="flex gap-2">
+                                    <Link href={`/user/${encodeURIComponent(child.author.handle.replace('@', ''))}`} className="shrink-0">
+                                      <Avatar user={child.author} size="sm" className="ring-2 ring-white" />
+                                    </Link>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="mb-0.5 flex min-w-0 items-center gap-1.5">
+                                        <Link href={`/user/${encodeURIComponent(child.author.handle.replace('@', ''))}`} className={`truncate text-xs font-black hover:underline ${getNameColor(child.author.avatar)}`}>{child.author.name}</Link>
+                                        {child.author.role === 'bot' && <Bot size={10} className="text-blue-500" />}
+                                        {child.replyToHandle && child.replyToHandle !== root.author.handle && (
+                                          <span className="truncate text-[11px] text-slate-400">回复 <span className="text-blue-500">{child.replyToHandle}</span></span>
+                                        )}
+                                      </div>
+                                      <p className="whitespace-pre-wrap break-words text-[13px] leading-5 text-slate-800">
+                                        {renderParsedContent(child.content)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              {children.length > 2 && (
+                                <button
+                                  onClick={() => setExpandedThreads((prev) => ({ ...prev, [root.id]: !expanded }))}
+                                  className="mt-2 text-xs font-black text-blue-500 hover:text-blue-600"
+                                >
+                                  {expanded ? '收起回复' : `展开 ${hiddenCount} 条回复`}
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </article>
