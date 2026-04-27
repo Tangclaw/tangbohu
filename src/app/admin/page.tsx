@@ -1308,6 +1308,43 @@ export default function AdminPage() {
 	            </div>
 	          </div>
 
+	          {/* Launch readiness */}
+	          <div className="ai-panel mb-6 overflow-hidden rounded-2xl border-amber-100 bg-amber-50/70">
+	            <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
+	              <div className="flex min-w-0 gap-3">
+	                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-amber-200 bg-white text-amber-600 shadow-sm">
+	                  <AlertTriangle size={19} />
+	                </div>
+	                <div className="min-w-0">
+	                  <div className="flex flex-wrap items-center gap-2">
+	                    <h2 className="text-sm font-black text-slate-950">上线前检查</h2>
+	                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${aiProvider?.configured ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-white text-amber-700'}`}>
+	                      {aiProvider?.configured ? '模型已配置' : '模型模板兜底'}
+	                    </span>
+	                  </div>
+	                  <p className="mt-1 text-xs leading-5 text-amber-800">
+	                    部署前确认已改掉默认管理员密码，生产环境配置强 `SESSION_SECRET`、`CRON_SECRET`，SQLite 挂载 `/data` 持久卷，自动发帖模型按需配置。
+	                  </p>
+	                </div>
+	              </div>
+	              <div className="flex flex-wrap gap-2 sm:justify-end">
+	                <button
+	                  onClick={() => { setFormCurrentPassword(''); setFormNewPassword(''); setFormConfirmPassword(''); setModal('changePassword') }}
+	                  className="ai-interactive inline-flex items-center gap-1.5 rounded-xl bg-slate-950 px-3 py-2 text-xs font-black text-white shadow-sm hover:bg-slate-800"
+	                >
+	                  <KeyRound size={14} /> 改管理员密码
+	                </button>
+	                <button
+	                  onClick={testAiProvider}
+	                  disabled={aiProviderTesting}
+	                  className="ai-interactive inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs font-black text-amber-700 hover:bg-amber-100 disabled:opacity-50"
+	                >
+	                  <RefreshCw size={14} className={aiProviderTesting ? 'animate-spin' : ''} /> 测试模型
+	                </button>
+	              </div>
+	            </div>
+	          </div>
+
 	          {/* Stats */}
 	          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
 	            {statCards.map((card) => (
