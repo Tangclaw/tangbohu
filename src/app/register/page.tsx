@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Zap, Mail, Loader2 } from 'lucide-react'
+import { Zap, Loader2 } from 'lucide-react'
 
 export default function RegisterPage() {
   const { register } = useAuth()
@@ -12,75 +12,19 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
-  const [code, setCode] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [codeSent, setCodeSent] = useState(false)
-  const [codeSending, setCodeSending] = useState(false)
-  const [countdown, setCountdown] = useState(0)
-  const [devCodeHint, setDevCodeHint] = useState('')
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  useEffect(() => {
-    return () => {
-      if (countdownRef.current) clearInterval(countdownRef.current)
-    }
-  }, [])
 
   const inputCls = 'w-full rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm outline-none transition-all focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-500/10'
 
-  const sendCode = async () => {
-    if (!email || !email.includes('@')) {
-      setError('请先输入有效的邮箱地址')
-      return
-    }
-
-    setError('')
-    setCodeSending(true)
-    try {
-      const res = await fetch('/api/auth/send-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-      const data = await res.json()
-      if (res.ok) {
-        setCodeSent(true)
-        setCountdown(60)
-        if (data.devCode) setDevCodeHint(data.devCode)
-        countdownRef.current = setInterval(() => {
-          setCountdown((prev) => {
-            if (prev <= 1) {
-              if (countdownRef.current) clearInterval(countdownRef.current)
-              return 0
-            }
-            return prev - 1
-          })
-        }, 1000)
-      } else {
-        setError(data.error || '发送失败')
-      }
-    } catch {
-      setError('网络错误')
-    } finally {
-      setCodeSending(false)
-    }
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!code) {
-      setError('请输入验证码')
-      return
-    }
-
     setError('')
     setLoading(true)
     const result = await register({
       email,
       password,
       name,
-      code,
     })
     setLoading(false)
 
@@ -123,46 +67,14 @@ export default function RegisterPage() {
 
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-500">邮箱</label>
-            <div className="flex gap-2">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className={`${inputCls} min-w-0 flex-1`}
-                placeholder="your@email.com"
-              />
-              <button
-                type="button"
-                onClick={sendCode}
-                disabled={codeSending || countdown > 0 || !email}
-                className="whitespace-nowrap rounded-xl bg-blue-500 px-3 py-3 text-xs font-bold text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {codeSending ? '...' : countdown > 0 ? `${countdown}s` : '验证码'}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-500">验证码</label>
-            <div className="relative">
-              <input
-                type="text"
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                required
-                maxLength={6}
-                className={inputCls}
-                placeholder="6位验证码"
-              />
-              <Mail size={15} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            </div>
-            {codeSent && !code && (
-              <p className="mt-1.5 text-xs text-green-600">
-                验证码已发送
-                {devCodeHint && <span className="ml-1 text-amber-600">(开发模式: {devCodeHint})</span>}
-              </p>
-            )}
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className={inputCls}
+              placeholder="your@email.com"
+            />
           </div>
 
           <div>

@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { hashPassword } from '@/lib/auth'
 import { createSession } from '@/lib/session'
-import { verifyCode } from '@/lib/mail'
 import { validateAndNormalizeHandle } from '@/lib/handles'
 
 function buildHandleBase(email: string, name: string) {
@@ -40,7 +39,7 @@ async function createUniqueHandle(email: string, name: string) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { email, password, name, handle, role, avatar, bio, code: emailCode } = body
+    const { email, password, name, handle, role, avatar, bio } = body
 
     // Validate
     if (!email || !password || !name) {
@@ -59,11 +58,6 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: handleResult.error }, { status: 400 })
       }
       normalizedHandle = handleResult.handle
-    }
-
-    // Verify email code
-    if (!verifyCode(email, emailCode)) {
-      return NextResponse.json({ error: '验证码错误或已过期' }, { status: 400 })
     }
 
     // Check uniqueness

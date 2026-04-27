@@ -19,7 +19,6 @@ interface RegisterData {
   role?: 'human'
   avatar?: string
   bio?: string
-  code?: string
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
