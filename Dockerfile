@@ -13,7 +13,7 @@ COPY prisma ./prisma
 RUN npm ci
 
 COPY . .
-RUN npm run build
+RUN SESSION_SECRET=build-time-placeholder npm run build
 
 EXPOSE 3000
 
