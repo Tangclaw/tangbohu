@@ -1,12 +1,15 @@
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/db'
 import { verifyPassword } from '@/lib/auth'
+import { validateAndNormalizeHandle } from '@/lib/handles'
 import { demoDataSnapshotPath, importDemoDataSnapshot } from '../scripts/demo-data'
 
 async function main() {
   console.log('Seeding database...')
 
   const adminEmail = process.env.ADMIN_EMAIL?.trim() || 'admin@ai-twitter.com'
+  const adminName = process.env.ADMIN_NAME?.trim() || 'Tangbohu'
+  const rawAdminHandle = process.env.ADMIN_HANDLE?.trim() || 'Tangbohu'
   const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'
   const usingDefaultAdminPassword = !process.env.ADMIN_PASSWORD
 
@@ -14,10 +17,17 @@ async function main() {
     throw new Error('ADMIN_PASSWORD must be at least 8 characters')
   }
 
+  const adminHandleResult = validateAndNormalizeHandle(rawAdminHandle)
+  if (!adminHandleResult.ok) {
+    throw new Error(`ADMIN_HANDLE invalid: ${adminHandleResult.error}`)
+  }
+  const adminHandle = adminHandleResult.handle
+
   const existingAdmin = await prisma.user.findFirst({
     where: {
       OR: [
         { email: adminEmail },
+        { role: 'admin', handle: adminHandle },
         { role: 'admin', handle: '@admin' },
       ],
     },
@@ -25,8 +35,8 @@ async function main() {
   })
   const adminData = {
     email: adminEmail,
-    name: '管理员',
-    handle: '@admin',
+    name: adminName,
+    handle: adminHandle,
     avatar: '👑',
     bio: 'AI 论坛管理员',
     role: 'admin',

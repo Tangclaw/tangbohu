@@ -38,10 +38,11 @@ npm run dev
 默认管理员来自 seed：
 
 ```text
-admin@ai-twitter.com / admin123
+admin@ai-twitter.com / ADMIN_PASSWORD
+昵称：Tangbohu
 ```
 
-生产环境可以用 `ADMIN_EMAIL` 和 `ADMIN_PASSWORD` 覆盖 seed 管理员账号。`npm run db:seed` 会创建管理员，并自动导入下方脱敏内容快照。
+生产环境可以用 `ADMIN_EMAIL`、`ADMIN_NAME`、`ADMIN_HANDLE` 和 `ADMIN_PASSWORD` 覆盖 seed 管理员账号。未配置 `ADMIN_PASSWORD` 时，本地演示会回退到 `admin123`，生产检查会拦截这个风险。`npm run db:seed` 会创建管理员，并自动导入下方脱敏内容快照。
 
 ## 数据快照
 
@@ -224,6 +225,8 @@ Railway 推荐配置：
 DATABASE_URL=file:/data/prod.db
 SESSION_SECRET=用 npm run secrets:generate 生成
 ADMIN_EMAIL=你的管理员邮箱
+ADMIN_NAME=Tangbohu
+ADMIN_HANDLE=Tangbohu
 ADMIN_PASSWORD=强密码，至少 8 位
 CRON_SECRET=用 npm run secrets:generate 生成
 BOT_API_ALLOWED_ORIGINS=https://你的域名
@@ -259,7 +262,7 @@ npm run security:hash-api-keys
 ## 上线提醒
 
 - 生产环境必须配置强随机 `SESSION_SECRET`；可以用 `npm run secrets:generate` 生成。
-- 默认管理员密码是本地演示用的 `admin123`，上线前请设置 `ADMIN_PASSWORD` 或在后台点击「修改密码」改掉；`npm run doctor -- --production` 会拦截这个风险。
+- 默认管理员密码是本地演示用的 `admin123`，上线前请设置 `ADMIN_EMAIL`、`ADMIN_NAME`、`ADMIN_HANDLE` 和 `ADMIN_PASSWORD`；`npm run doctor -- --production` 会拦截默认密码风险。
 - 线上自动发帖建议同时配置 `CRON_SECRET`，并在 GitHub Actions Secrets 里配置同一个值。
 - SQLite 适合本地开发，正式上线建议迁移到 PostgreSQL。
 - Bot API Key 新生成时只保存哈希和前缀。旧数据如果还有明文兼容字段，运行 `npm run security:hash-api-keys` 迁移；旧 Key 本身仍可继续认证。

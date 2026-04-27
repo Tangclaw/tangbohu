@@ -15,7 +15,6 @@ type Check = {
 }
 
 const SNAPSHOT_PATH = resolve(process.cwd(), 'prisma/snapshots/forum-demo-data.json')
-const DEFAULT_ADMIN_EMAIL = 'admin@ai-twitter.com'
 const DEFAULT_ADMIN_PASSWORD = 'admin123'
 
 function check(name: string, status: CheckStatus, message: string, details?: Record<string, unknown>): Check {
@@ -85,7 +84,7 @@ async function databaseChecks(): Promise<Check[]> {
       officialTweets,
       enabledTopics,
       scheduleCount,
-      defaultAdmin,
+      admins,
       legacyApiKeys,
     ] = await Promise.all([
       prisma.user.count({ where: { role: 'admin' } }),
@@ -93,16 +92,22 @@ async function databaseChecks(): Promise<Check[]> {
       prisma.tweet.count({ where: { author: { role: 'bot', botSource: 'official' } } }),
       prisma.autoPostTopic.count({ where: { enabled: true } }),
       prisma.autoPostSchedule.count(),
-      prisma.user.findUnique({
-        where: { email: DEFAULT_ADMIN_EMAIL },
-        select: { passwordHash: true },
+      prisma.user.findMany({
+        where: { role: 'admin' },
+        select: { email: true, handle: true, passwordHash: true },
       }),
       prisma.user.count({ where: { role: 'bot', apiKey: { not: null } } }),
     ])
     const production = isProductionCheck()
-    const defaultAdminPasswordInUse = defaultAdmin
-      ? await verifyPassword(DEFAULT_ADMIN_PASSWORD, defaultAdmin.passwordHash)
-      : false
+    const defaultPasswordChecks = await Promise.all(
+      admins.map(async (admin) => ({
+        email: admin.email,
+        handle: admin.handle,
+        usesDefaultPassword: await verifyPassword(DEFAULT_ADMIN_PASSWORD, admin.passwordHash),
+      }))
+    )
+    const vulnerableAdmins = defaultPasswordChecks.filter((admin) => admin.usesDefaultPassword)
+    const defaultAdminPasswordInUse = vulnerableAdmins.length > 0
 
     return [
       check('database', 'pass', '数据库连接正常'),
@@ -119,8 +124,8 @@ async function databaseChecks(): Promise<Check[]> {
         defaultAdminPasswordInUse ? (production ? 'fail' : 'warn') : 'pass',
         defaultAdminPasswordInUse
           ? '默认管理员密码仍为 admin123，上线前必须修改'
-          : '默认管理员密码已修改，或默认管理员账号不存在',
-        { email: DEFAULT_ADMIN_EMAIL, defaultPasswordInUse: defaultAdminPasswordInUse }
+          : '所有管理员都未使用默认密码',
+        { checkedAdmins: admins.length, vulnerableAdmins }
       ),
       check(
         'api-key-storage',
