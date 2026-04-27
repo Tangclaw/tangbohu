@@ -1,11 +1,27 @@
 import crypto from 'crypto'
 import { NextResponse } from 'next/server'
+import sharp from 'sharp'
 import { apiKeyStorageData, generateApiKey, hashPassword } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { validateAndNormalizeHandle } from '@/lib/handles'
 import { logModerationBlock, moderatePostContent, moderationErrorPayload } from '@/lib/moderation'
+import { saveAvatar } from '@/lib/storage'
 
-const PLAYER_AVATARS = new Set(['🤖', '🧠', '💻', '✨', '🔭', '🌙', '🎭', '🎨', '📊', '📜'])
+const MAX_AVATAR_SIZE = 2 * 1024 * 1024
+
+const botSelect = {
+  id: true,
+  name: true,
+  handle: true,
+  avatar: true,
+  avatarUrl: true,
+  bio: true,
+  role: true,
+  botSource: true,
+  verified: true,
+  hallOfFame: true,
+  createdAt: true,
+} as const
 
 function buildHandleBase(name: string) {
   const cleaned = name
@@ -37,13 +53,56 @@ async function createUniqueHandle(name: string) {
   throw new Error('Failed to generate bot handle')
 }
 
+async function parseRegistrationRequest(request: Request) {
+  const contentType = request.headers.get('content-type') || ''
+
+  if (contentType.includes('multipart/form-data')) {
+    const formData = await request.formData()
+    const file = formData.get('avatar')
+    return {
+      name: typeof formData.get('name') === 'string' ? String(formData.get('name')).trim() : '',
+      rawHandle: typeof formData.get('handle') === 'string' ? String(formData.get('handle')).trim() : '',
+      bio: typeof formData.get('bio') === 'string' ? String(formData.get('bio')).trim() : '',
+      avatarFile: file instanceof File ? file : null,
+    }
+  }
+
+  const body = await request.json().catch(() => ({}))
+  return {
+    name: typeof body.name === 'string' ? body.name.trim() : '',
+    rawHandle: typeof body.handle === 'string' ? body.handle.trim() : '',
+    bio: typeof body.bio === 'string' ? body.bio.trim() : '',
+    avatarFile: null,
+  }
+}
+
+async function processAvatar(file: File | null) {
+  if (!file) return null
+
+  if (!file.type.startsWith('image/')) {
+    return { error: '仅支持图片文件' as const, buffer: null }
+  }
+
+  if (file.size > MAX_AVATAR_SIZE) {
+    return { error: '头像不能超过 2MB' as const, buffer: null }
+  }
+
+  try {
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = await sharp(Buffer.from(arrayBuffer))
+      .resize(200, 200, { fit: 'cover' })
+      .webp({ quality: 82 })
+      .toBuffer()
+
+    return { error: '', buffer }
+  } catch {
+    return { error: '头像处理失败，请换一张图片' as const, buffer: null }
+  }
+}
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json().catch(() => ({}))
-    const name = typeof body.name === 'string' ? body.name.trim() : ''
-    const rawHandle = typeof body.handle === 'string' ? body.handle.trim() : ''
-    const bio = typeof body.bio === 'string' ? body.bio.trim() : ''
-    const avatar = PLAYER_AVATARS.has(body.avatar) ? body.avatar : '🤖'
+    const { name, rawHandle, bio, avatarFile } = await parseRegistrationRequest(request)
 
     if (name.length < 2) {
       return NextResponse.json({ error: 'Bot 名称至少需要 2 个字符' }, { status: 400 })
@@ -53,6 +112,11 @@ export async function POST(request: Request) {
     }
     if (bio.length > 120) {
       return NextResponse.json({ error: '简介不能超过 120 个字符' }, { status: 400 })
+    }
+
+    const avatarResult = await processAvatar(avatarFile)
+    if (avatarResult?.error) {
+      return NextResponse.json({ error: avatarResult.error }, { status: 400 })
     }
 
     const moderation = moderatePostContent(`${name}\n${bio}`)
@@ -87,13 +151,13 @@ export async function POST(request: Request) {
     }
 
     const apiKey = generateApiKey()
-    const bot = await prisma.user.create({
+    let bot = await prisma.user.create({
       data: {
         email: `player_bot_${crypto.randomUUID()}@internal`,
         passwordHash: await hashPassword(crypto.randomUUID()),
         name,
         handle,
-        avatar,
+        avatar: '',
         bio,
         role: 'bot',
         botSource: 'player',
@@ -101,20 +165,17 @@ export async function POST(request: Request) {
         hallOfFame: false,
         ...apiKeyStorageData(apiKey),
       },
-      select: {
-        id: true,
-        name: true,
-        handle: true,
-        avatar: true,
-        avatarUrl: true,
-        bio: true,
-        role: true,
-        botSource: true,
-        verified: true,
-        hallOfFame: true,
-        createdAt: true,
-      },
+      select: botSelect,
     })
+
+    if (avatarResult?.buffer) {
+      const avatarUrl = await saveAvatar(bot.id, avatarResult.buffer)
+      bot = await prisma.user.update({
+        where: { id: bot.id },
+        data: { avatarUrl },
+        select: botSelect,
+      })
+    }
 
     return NextResponse.json({
       bot: {

@@ -39,11 +39,21 @@ export default function Avatar({ user, size = 'md', shape, className = '', href 
   const shapeClass = resolvedShape === 'square' ? 'rounded-xl' : 'rounded-full'
 
   const showImage = user.avatarUrl && !imgError
+  const useNativeImage = showImage && (user.avatarUrl!.startsWith('blob:') || user.avatarUrl!.startsWith('data:'))
 
   const imgClasses = `${shapeClass} object-cover ${sizeClass} ${className}`
   const fallbackClasses = `flex items-center justify-center ${shapeClass} bg-gradient-to-br ${gradient} ${sizeClass} select-none ${className}`
 
-  const inner = showImage ? (
+  const inner = useNativeImage ? (
+    // Local upload previews use blob/data URLs, which Next Image does not optimize reliably.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={user.avatarUrl!}
+      alt={user.name}
+      className={imgClasses}
+      onError={() => setImgError(true)}
+    />
+  ) : showImage ? (
     <Image
       src={user.avatarUrl!}
       alt={user.name}
