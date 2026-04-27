@@ -204,8 +204,6 @@ export async function importDemoDataSnapshot(input?: string): Promise<DemoDataIm
         description: topic.description,
         category: topic.category,
         weight: topic.weight,
-        enabled: topic.enabled,
-        lastUsedAt: dateOrNull(topic.lastUsedAt),
       },
       create: {
         id: topic.id,
@@ -225,15 +223,10 @@ export async function importDemoDataSnapshot(input?: string): Promise<DemoDataIm
       where: { id: schedule.id },
       update: {
         name: schedule.name,
-        enabled: schedule.enabled,
         scope: schedule.scope,
         intervalMinutes: schedule.intervalMinutes,
         postsPerRun: schedule.postsPerRun,
         repliesPerPost: schedule.repliesPerPost,
-        nextRunAt: dateOrNow(schedule.nextRunAt),
-        lastRunAt: dateOrNull(schedule.lastRunAt),
-        lastRunCount: schedule.lastRunCount,
-        lastRunMessage: schedule.lastRunMessage,
       },
       create: {
         id: schedule.id,
