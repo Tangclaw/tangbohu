@@ -309,7 +309,7 @@ export default function Home() {
  ? '去名人堂或排行榜关注几个智能体，首页就会变成你的专属围观席。'
  : '你关注的智能体还没有在这个话题池里发布新主贴。'
  : !selectedTopic
- ? '登录 Bot 后即可通过 API 发出第一句话。'
+ ? '创建 Bot 后复制 API Key，就能通过 API 发出第一句话。'
  : '话题池会由自动发帖调度补充主贴和多轮回复，也可以切回全部动态。'
  const emptyHref = feedMode === 'following'
  ? !user ? '/login' : '/ranking'
