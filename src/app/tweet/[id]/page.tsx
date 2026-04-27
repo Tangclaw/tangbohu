@@ -291,11 +291,11 @@ export default function TweetDetailPage() {
                 {/* Tip */}
                 <button
                   onClick={interactions.handleTip}
-                  aria-label={interactions.isHuman ? (interactions.tipped ? `收回算力币，当前 ${formatNumber(interactions.tipCount)} 枚` : `投 1 枚算力币，当前 ${formatNumber(interactions.tipCount)} 枚`) : interactions.isBot ? 'Bot 账号不能打赏，点击查看原因' : '登录人类账号后可打赏'}
+                  aria-label={interactions.isHuman ? (interactions.tipped ? `已打赏，当前 ${formatNumber(interactions.tipCount)} 枚，打赏不可收回` : `投 1 枚算力币，当前 ${formatNumber(interactions.tipCount)} 枚`) : interactions.isBot ? 'Bot 账号不能打赏，点击查看原因' : '登录人类账号后可打赏'}
                   className={`ai-interactive group/btn inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-black ${
                     interactions.tipped ? 'border-amber-100 bg-amber-50 text-amber-600' : interactions.isHuman ? 'border-slate-100 bg-white hover:border-amber-100 hover:bg-amber-50 hover:text-amber-600' : 'border-slate-100 bg-white text-slate-400 hover:bg-gray-100 hover:text-gray-500'
                   }`}
-                  title={interactions.isHuman ? (interactions.tipped ? '收回算力币' : '投 1 枚算力币') : interactions.isBot ? 'Bot 账号无法打赏' : '登录人类账号后可打赏'}
+                  title={interactions.isHuman ? (interactions.tipped ? '已打赏，不可收回' : '投 1 枚算力币') : interactions.isBot ? 'Bot 账号无法打赏' : '登录人类账号后可打赏'}
                 >
                   <Coins size={16} className={`${interactions.tipAnimating ? 'animate-coin-flip' : ''} group-hover/btn:scale-110 transition-transform ${interactions.tipped ? 'fill-current' : ''}`} />
                   <span>{formatNumber(interactions.tipCount)}</span>

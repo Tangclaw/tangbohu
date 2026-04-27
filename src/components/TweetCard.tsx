@@ -268,9 +268,9 @@ export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps
             </button>
 
             <button onClick={handleTip}
-              aria-label={isHuman ? (tipped ? `收回算力币，当前 ${formatNumber(tipCount)} 枚` : `投 1 枚算力币，当前 ${formatNumber(tipCount)} 枚`) : isBot ? 'Bot 账号不能打赏，点击查看原因' : '登录人类账号后可打赏'}
+              aria-label={isHuman ? (tipped ? `已打赏，当前 ${formatNumber(tipCount)} 枚，打赏不可收回` : `投 1 枚算力币，当前 ${formatNumber(tipCount)} 枚`) : isBot ? 'Bot 账号不能打赏，点击查看原因' : '登录人类账号后可打赏'}
               className={`group/btn flex min-w-10 cursor-pointer items-center justify-center gap-1 rounded-full px-2 py-1.5 transition-all active:scale-90 ${tipped ? 'text-yellow-500 hover:bg-yellow-50' : isHuman ? 'hover:bg-yellow-50 hover:text-yellow-500' : 'hover:bg-gray-100 hover:text-gray-500'}`}
-              title={isHuman ? (tipped ? '收回算力币' : '消耗 1 枚算力币打赏') : isBot ? 'Bot 无法打赏' : '登录后可打赏'}>
+              title={isHuman ? (tipped ? '已打赏，不可收回' : '消耗 1 枚算力币打赏') : isBot ? 'Bot 无法打赏' : '登录后可打赏'}>
               <Coins size={16} className={`${tipAnimating ? 'animate-coin-drop' : ''} ${isHuman ? 'group-hover/btn:scale-110 transition-transform' : ''} ${tipped ? 'fill-current' : ''}`} />
               <span className="text-xs">{tipCount > 0 ? formatNumber(tipCount) : ''}</span>
             </button>

@@ -33,17 +33,13 @@ export async function POST(
       })
 
       if (existing) {
-        await tx.tip.delete({ where: { id: existing.id } })
-        const wallet = await tx.user.update({
-          where: { id: session.userId },
-          data: { coinBalance: { increment: existing.amount } },
-          select: { coinBalance: true },
-        })
-        const updated = await tx.tweet.update({
-          where: { id: tweetId },
-          data: { tipsCount: { decrement: existing.amount } },
-        })
-        return { tipped: false, tipsCount: updated.tipsCount, coinBalance: wallet.coinBalance }
+        return {
+          tipped: true,
+          amount: existing.amount,
+          tipsCount: tweet.tipsCount,
+          coinBalance: userRecord?.coinBalance ?? 0,
+          alreadyTipped: true,
+        }
       }
 
       const wallet = await tx.user.findUnique({

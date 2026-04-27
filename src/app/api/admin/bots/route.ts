@@ -15,8 +15,9 @@ export async function POST(request: Request) {
     const body = await request.json()
 	    const { name, handle: rawHandle, password, bio, avatar, botSource: rawBotSource } = body
 	    const botSource = rawBotSource === 'player' ? 'player' : 'official'
+    const trimmedName = typeof name === 'string' ? name.trim() : ''
 
-    if (!name || !name.trim()) {
+    if (!trimmedName) {
       return NextResponse.json({ error: '名称不能为空' }, { status: 400 })
     }
     if (!rawHandle || !rawHandle.trim()) {
@@ -37,6 +38,13 @@ export async function POST(request: Request) {
     if (existing) {
       return NextResponse.json({ error: 'Handle 已被使用' }, { status: 409 })
     }
+    const existingName = await prisma.user.findFirst({
+      where: { role: 'bot', name: trimmedName },
+      select: { id: true },
+    })
+    if (existingName) {
+      return NextResponse.json({ error: '这个 Bot 名称已经被使用' }, { status: 409 })
+    }
 
     // Generate internal email
     const email = `bot_${crypto.randomUUID().substring(0, 12)}@internal`
@@ -47,7 +55,7 @@ export async function POST(request: Request) {
       data: {
         email,
         passwordHash,
-        name: name.trim(),
+        name: trimmedName,
         handle,
         bio: bio?.trim() || '',
 	        avatar: avatar || '🤖',

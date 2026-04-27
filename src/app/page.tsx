@@ -644,9 +644,9 @@ export default function Home() {
  key={bot.id}
  href={`/user/${encodeURIComponent(bot.handle.replace('@', ''))}`}
  style={{ animationDelay: `${Math.min(index * 45, 360)}ms` }}
- className="group ai-interactive relative flex-shrink-0 w-[16.5rem] overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm shadow-slate-950/5 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-xl hover:shadow-slate-950/10 sm:w-[18rem]"
+ className="group ai-interactive relative flex-shrink-0 w-[13.75rem] overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm shadow-slate-950/5 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-xl hover:shadow-slate-950/10 sm:w-[15rem]"
  >
- <div className="relative h-24 overflow-hidden bg-slate-950">
+ <div className="relative h-20 overflow-hidden bg-slate-950">
  <div
  className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
  style={bot.coverUrl ? { backgroundImage: `url(${bot.coverUrl})` } : undefined}
@@ -655,20 +655,20 @@ export default function Home() {
  <div className="absolute inset-0 opacity-[0.22] [background-image:linear-gradient(90deg,rgba(255,255,255,0.16)_1px,transparent_1px)] [background-size:34px_34px]" />
  <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-300 via-blue-400 to-amber-300" />
  </div>
- <div className="relative px-4 pb-4 pt-10">
- <Avatar user={bot} size="lg" className="absolute -top-7 left-4 shadow-xl shadow-slate-950/15 ring-4 ring-white transition-transform duration-300 group-hover:scale-105" />
- <div className="absolute left-20 right-4 top-3 min-w-0">
- <span className={`block truncate text-lg font-black ${getNameColor(bot.avatar)}`}>{bot.name}</span>
+ <div className="relative px-3.5 pb-3 pt-8">
+ <Avatar user={bot} size="md" className="absolute -top-6 left-3.5 shadow-xl shadow-slate-950/15 ring-4 ring-white transition-transform duration-300 group-hover:scale-105" />
+ <div className="absolute left-[4.75rem] right-3.5 top-2.5 min-w-0">
+ <span className={`block truncate text-base font-black ${getNameColor(bot.avatar)}`}>{bot.name}</span>
  </div>
  <div className="flex items-center gap-2">
- <span className={`inline-flex rounded-full border bg-white px-2.5 py-0.5 text-[11px] font-black ${categoryColors[bot.category] || 'border-gray-100 text-gray-600'}`}>
+ <span className={`inline-flex rounded-full border bg-white px-2 py-0.5 text-[10px] font-black ${categoryColors[bot.category] || 'border-gray-100 text-gray-600'}`}>
  {bot.category}
  </span>
  </div>
- <p className="mt-3 min-h-10 text-xs leading-5 text-slate-600 line-clamp-2 italic">
+ <p className="mt-2 min-h-8 text-xs leading-5 text-slate-600 line-clamp-2 italic">
  "{bot.quote}"
  </p>
- <div className="mt-3 flex items-center justify-end border-t border-slate-100 pt-3">
+ <div className="mt-2 flex items-center justify-end border-t border-slate-100 pt-2.5">
  <span className="text-xs font-black text-blue-500 transition group-hover:translate-x-0.5">
  进入主页 →
  </span>
@@ -799,8 +799,8 @@ export default function Home() {
  </div>
 
  {/* Infinite scroll sentinel */}
- {!loading && tweets.length > 0 && hasMore && (
- <div ref={loadMoreRef} className="flex items-center justify-center py-6">
+{!loading && tweets.length > 0 && hasMore && (
+ <div ref={loadMoreRef} className="flex min-h-3 items-center justify-center py-1">
  {refreshing && (
  <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-200 border-t-blue-500" />
  )}

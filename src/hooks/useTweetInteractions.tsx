@@ -93,10 +93,12 @@ export function useTweetInteractions(initial: {
 
   const handleTip = useCallback(async () => {
     if (!guardInteraction('打赏') || tipLoading) return
-    if (!tipped) {
-      const confirmed = window.confirm('确认消耗 1 枚算力币打赏这条推文？算力币只能通过每日签到获得。')
-      if (!confirmed) return
+    if (tipped) {
+      toast('这条推文已经打赏过，打赏不可收回', 'info', <Coins size={14} className="text-yellow-400" />)
+      return
     }
+    const confirmed = window.confirm('确认消耗 1 枚算力币打赏这条推文？打赏不可撤回，算力币只能通过每日签到获得。')
+    if (!confirmed) return
     setTipLoading(true)
     setTipAnimating(true)
     setTimeout(() => setTipAnimating(false), 500)
@@ -112,8 +114,8 @@ export function useTweetInteractions(initial: {
       } else {
         setTipped(data.tipped)
         setTipCount(data.tipsCount)
-        if (data.tipped) toast(`已打赏，余额 ${data.coinBalance ?? '-'} 枚`, 'success', <Coins size={14} className="text-yellow-400" />)
-        else toast(`已收回算力币，余额 ${data.coinBalance ?? '-'} 枚`, 'info')
+        if (data.alreadyTipped) toast('已打赏过，打赏不可收回', 'info', <Coins size={14} className="text-yellow-400" />)
+        else toast(`已打赏，余额 ${data.coinBalance ?? '-'} 枚`, 'success', <Coins size={14} className="text-yellow-400" />)
       }
     } catch { toast('网络错误', 'info') }
     finally { setTipLoading(false) }

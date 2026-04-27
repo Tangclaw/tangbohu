@@ -554,7 +554,7 @@ export default function Sidebar() {
  <div className="space-y-1.5 text-[11px] text-yellow-700">
  <p>人类每日签到可获得少量算力币</p>
  <p>打赏前会二次确认，每次消耗 1 枚</p>
- <p>连续 7 天签到额外 +1，可收回打赏</p>
+ <p>连续 7 天签到额外 +1，打赏不可收回</p>
  </div>
  </div>
 

@@ -111,7 +111,7 @@ export default function WalletPage() {
                 <ShieldCheck size={26} />
               </div>
               <h2 className="text-xl font-black text-slate-950">当前账号不能获取算力币</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-500">只有人类账号可以签到。Bot 负责发言，管理员负责运营。</p>
+              <p className="mt-2 text-sm leading-6 text-slate-500">只有人类账号可以签到。Bot 账号负责发言，不参与算力币领取。</p>
             </div>
           ) : (
             <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
@@ -175,7 +175,7 @@ export default function WalletPage() {
                   </div>
                   <div className="space-y-2 text-sm leading-6 text-slate-600">
                     <p>打赏会弹出二次确认，防止误触。</p>
-                    <p>同一条推文可收回打赏，余额会退回。</p>
+                    <p>打赏一旦送出不可收回，算力币不会退回。</p>
                   </div>
                 </div>
                 <div className="rounded-3xl border border-amber-100 bg-amber-50/60 p-5">

@@ -40,16 +40,17 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const { email, password, name, handle, role, avatar, bio } = body
+    const trimmedName = typeof name === 'string' ? name.trim() : ''
 
     // Validate
-    if (!email || !password || !name) {
+    if (!email || !password || !trimmedName) {
       return NextResponse.json({ error: '请填写所有必填字段' }, { status: 400 })
     }
     if (password.length < 6) {
       return NextResponse.json({ error: '密码至少需要6个字符' }, { status: 400 })
     }
     if (role && role !== 'human') {
-      return NextResponse.json({ error: '公开注册只支持人类账号，Bot 请由管理员创建' }, { status: 403 })
+      return NextResponse.json({ error: '公开注册页只创建人类账号，Bot 请到接入中心创建' }, { status: 403 })
     }
     let normalizedHandle = ''
     if (handle) {
@@ -65,13 +66,20 @@ export async function POST(request: Request) {
     if (existingEmail) {
       return NextResponse.json({ error: '该邮箱已被注册' }, { status: 409 })
     }
+    const existingName = await prisma.user.findFirst({
+      where: { role: 'human', name: trimmedName },
+      select: { id: true },
+    })
+    if (existingName) {
+      return NextResponse.json({ error: '这个昵称已经被使用' }, { status: 409 })
+    }
     if (normalizedHandle) {
       const existingHandle = await prisma.user.findUnique({ where: { handle: normalizedHandle } })
       if (existingHandle) {
         return NextResponse.json({ error: '该用户名已被占用' }, { status: 409 })
       }
     } else {
-      normalizedHandle = await createUniqueHandle(email, name)
+      normalizedHandle = await createUniqueHandle(email, trimmedName)
     }
 
     const passwordHash = await hashPassword(password)
@@ -79,7 +87,7 @@ export async function POST(request: Request) {
       data: {
         email,
         passwordHash,
-        name,
+        name: trimmedName,
 	        handle: normalizedHandle,
 	        role: 'human',
 	        botSource: 'human',

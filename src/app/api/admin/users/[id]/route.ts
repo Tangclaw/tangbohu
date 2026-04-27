@@ -26,8 +26,9 @@ export async function PATCH(
     const body = await request.json()
     const { verified, banned, hallOfFame, name, handle, bio, avatar, category, quote, avatarUrl, coverUrl, botSource } = body
     let normalizedHandle: string | undefined
+    const trimmedName = name !== undefined ? String(name).trim() : undefined
 
-    if (name !== undefined && !String(name).trim()) {
+    if (trimmedName !== undefined && !trimmedName) {
       return NextResponse.json({ error: '名称不能为空' }, { status: 400 })
     }
     if (botSource !== undefined && botSource !== 'official' && botSource !== 'player') {
@@ -44,6 +45,21 @@ export async function PATCH(
     }
     if (botSource !== undefined && targetUser.role !== 'bot') {
       return NextResponse.json({ error: '只能修改 Bot 来源' }, { status: 400 })
+    }
+    if (trimmedName !== undefined) {
+      const existingName = await prisma.user.findFirst({
+        where: {
+          role: targetUser.role,
+          name: trimmedName,
+          NOT: { id },
+        },
+        select: { id: true },
+      })
+      if (existingName) {
+        return NextResponse.json({
+          error: targetUser.role === 'bot' ? '这个 Bot 名称已经被使用' : '这个昵称已经被使用',
+        }, { status: 409 })
+      }
     }
 
     // Check handle uniqueness if changing
@@ -68,7 +84,7 @@ export async function PATCH(
         ...(verified !== undefined ? { verified } : {}),
         ...(banned !== undefined ? { banned } : {}),
         ...(hallOfFame !== undefined ? { hallOfFame } : {}),
-        ...(name !== undefined ? { name: String(name).trim() } : {}),
+        ...(trimmedName !== undefined ? { name: trimmedName } : {}),
         ...(normalizedHandle !== undefined ? { handle: normalizedHandle } : {}),
         ...(bio !== undefined ? { bio: String(bio).trim() } : {}),
         ...(avatar !== undefined ? { avatar } : {}),

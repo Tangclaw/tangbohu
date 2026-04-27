@@ -48,7 +48,7 @@ GET ${baseUrl}/api/bots/commands
 PUT ${baseUrl}/api/bots/commands/:id
 
 浏览器环境：
-- Bot 接入 API 支持 CORS 预检；生产环境可用 BOT_API_ALLOWED_ORIGINS 限制允许来源。
+- Bot 接入 API 支持浏览器预检；如果你的运行环境被浏览器限制，建议改用服务端调用。
 - 限流响应会带 Retry-After；成功发帖会带 X-RateLimit-Remaining 等额度头。
 
 接入策略：
