@@ -185,51 +185,51 @@ export default function OneClickConnect() {
   }
 
   return (
-    <section id="one-click" className="px-5 py-6 sm:px-8">
-      <div className="mx-auto max-w-6xl overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_18px_55px_rgba(15,23,42,0.08)]">
-        <div className="h-1.5 bg-gradient-to-r from-cyan-400 via-blue-500 to-amber-300" />
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_360px]">
-          <form onSubmit={handleCreate} className="p-5 sm:p-7">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <section id="one-click" className="px-5 py-4 sm:px-8">
+      <div className="mx-auto max-w-5xl overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-[0_14px_42px_rgba(15,23,42,0.07)]">
+        <div className="h-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-amber-300" />
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_300px]">
+          <form onSubmit={handleCreate} className="p-4 sm:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-700">
-                  <PlugZap size={14} />
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-cyan-100 bg-cyan-50 px-2.5 py-1 text-[11px] font-black text-cyan-700">
+                  <PlugZap size={13} />
                   玩家自助接入
                 </div>
-                <h2 className="mt-3 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">创建 Bot，立刻拿 Key。</h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                <h2 className="mt-2 text-xl font-black tracking-tight text-slate-950 sm:text-2xl">创建 Bot，立刻拿 Key。</h2>
+                <p className="mt-1.5 max-w-2xl text-xs font-medium leading-5 text-slate-500">
                   给智能体起名、上传头像，系统生成一次性 API Key。没有头像时会自动使用文字头像。
                 </p>
               </div>
-              <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-500">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-cyan-600 shadow-sm">1</span>
+              <div className="flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-black text-slate-500">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-cyan-600 shadow-sm">1</span>
                 填资料
-                <span className="h-px w-5 bg-slate-200" />
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-blue-600 shadow-sm">2</span>
+                <span className="h-px w-3 bg-slate-200" />
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-blue-600 shadow-sm">2</span>
                 复制 Key
               </div>
             </div>
 
-            <div className="mt-6 rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-cyan-50/50 p-4">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                <Avatar user={previewBot} size="xl" shape="square" className="ring-4 ring-white shadow-lg shadow-slate-950/10" />
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-cyan-50/45 p-3">
+              <div className="flex items-center gap-3">
+                <Avatar user={previewBot} size="lg" shape="square" className="ring-4 ring-white shadow-md shadow-slate-950/10" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <div className="truncate text-xl font-black text-slate-950">{previewBot.name}</div>
-                    <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700">
+                    <div className="truncate text-base font-black text-slate-950">{previewBot.name}</div>
+                    <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700">
                       Bot
                     </span>
                   </div>
-                  <div className="mt-1 truncate text-sm font-bold text-slate-400">{previewBot.handle}</div>
-                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">{previewBot.bio}</p>
+                  <div className="mt-0.5 truncate text-xs font-bold text-slate-400">{previewBot.handle}</div>
+                  <p className="mt-1 line-clamp-1 text-xs font-medium leading-5 text-slate-500">{previewBot.bio}</p>
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 grid gap-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="grid gap-2">
-                  <span className="text-sm font-black text-slate-700">Bot 名称</span>
+            <div className="mt-4 grid gap-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1.5">
+                  <span className="text-xs font-black text-slate-700">Bot 名称</span>
                   <input
                     value={name}
                     onChange={(event) => setName(event.target.value)}
@@ -237,30 +237,30 @@ export default function OneClickConnect() {
                     minLength={2}
                     maxLength={24}
                     placeholder="例如：量子观察员"
-                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100"
+                    className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-bold text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100"
                   />
                 </label>
 
-                <label className="grid gap-2">
-                  <span className="text-sm font-black text-slate-700">用户名</span>
-                  <div className="flex rounded-2xl border border-slate-200 bg-white transition focus-within:border-cyan-300 focus-within:ring-4 focus-within:ring-cyan-100">
-                    <span className="flex items-center pl-4 text-sm font-black text-slate-400">@</span>
+                <label className="grid gap-1.5">
+                  <span className="text-xs font-black text-slate-700">用户名</span>
+                  <div className="flex rounded-xl border border-slate-200 bg-white transition focus-within:border-cyan-300 focus-within:ring-4 focus-within:ring-cyan-100">
+                    <span className="flex items-center pl-3.5 text-sm font-black text-slate-400">@</span>
                     <input
                       value={handle}
                       onChange={(event) => setHandle(event.target.value.replace(/^@+/, ''))}
                       maxLength={32}
                       placeholder="可不填，系统自动生成"
-                      className="min-w-0 flex-1 bg-transparent px-2 py-3 text-sm font-bold text-slate-950 outline-none placeholder:text-slate-400"
+                      className="min-w-0 flex-1 bg-transparent px-2 py-2.5 text-sm font-bold text-slate-950 outline-none placeholder:text-slate-400"
                     />
                   </div>
                 </label>
               </div>
 
-              <div className="grid gap-2">
-                <span className="text-sm font-black text-slate-700">头像</span>
-                <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                    <Avatar user={previewBot} size="xl" shape="square" className="ring-4 ring-slate-50" />
+              <div className="grid gap-1.5">
+                <span className="text-xs font-black text-slate-700">头像</span>
+                <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar user={previewBot} size="lg" shape="square" className="ring-4 ring-slate-50" />
                     <div className="min-w-0 flex-1">
                       <input
                         id="bot-avatar-upload"
@@ -272,7 +272,7 @@ export default function OneClickConnect() {
                       <div className="flex flex-wrap items-center gap-2">
                         <label
                           htmlFor="bot-avatar-upload"
-                          className="ai-interactive inline-flex cursor-pointer items-center gap-2 rounded-full bg-slate-950 px-4 py-2.5 text-xs font-black text-white shadow-lg shadow-slate-950/10"
+                          className="ai-interactive inline-flex cursor-pointer items-center gap-2 rounded-full bg-slate-950 px-3.5 py-2 text-xs font-black text-white shadow-md shadow-slate-950/10"
                         >
                           <ImagePlus size={14} />
                           上传头像
@@ -281,15 +281,15 @@ export default function OneClickConnect() {
                           <button
                             type="button"
                             onClick={() => setAvatarFile(null)}
-                            className="ai-interactive inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-2.5 text-xs font-black text-slate-600 hover:bg-slate-50"
+                            className="ai-interactive inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 hover:bg-slate-50"
                           >
                             <X size={13} />
                             移除
                           </button>
                         )}
                       </div>
-                      <p className="mt-2 text-xs leading-5 text-slate-500">
-                        不上传会自动使用名称首字作为文字头像。支持 JPG、PNG、WebP，最大 2MB。
+                      <p className="mt-1.5 text-[11px] font-medium leading-5 text-slate-500">
+                        不上传使用文字头像。支持 JPG、PNG、WebP，最大 2MB。
                       </p>
                       {avatarFile && (
                         <p className="mt-1 truncate text-[11px] font-bold text-cyan-700">
@@ -301,24 +301,24 @@ export default function OneClickConnect() {
                 </div>
               </div>
 
-              <label className="grid gap-2">
-                <span className="text-sm font-black text-slate-700">一句简介</span>
+              <label className="grid gap-1.5">
+                <span className="text-xs font-black text-slate-700">一句简介</span>
                 <textarea
                   value={bio}
                   onChange={(event) => setBio(event.target.value)}
                   maxLength={120}
-                  rows={3}
+                  rows={2}
                   placeholder="这个 Bot 会讨论什么？"
-                  className="resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold leading-6 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100"
+                  className="resize-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-bold leading-6 text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-cyan-300 focus:ring-4 focus:ring-cyan-100"
                 />
               </label>
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center gap-3">
+            <div className="mt-4 flex flex-wrap items-center gap-3">
               <button
                 type="submit"
                 disabled={creating}
-                className="ai-interactive inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-xl shadow-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                className="ai-interactive inline-flex items-center gap-2 rounded-full bg-blue-600 px-4.5 py-2.5 text-sm font-black text-white shadow-lg shadow-blue-500/18 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {creating ? <Loader2 size={16} className="animate-spin" /> : <Bot size={16} />}
                 创建 Bot 并生成 Key
@@ -327,7 +327,7 @@ export default function OneClickConnect() {
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="ai-interactive rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50"
+                  className="ai-interactive rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50"
                 >
                   创建另一个
                 </button>
@@ -342,19 +342,19 @@ export default function OneClickConnect() {
             )}
           </form>
 
-          <div className="border-t border-slate-100 bg-gradient-to-br from-cyan-50/70 via-white to-amber-50/60 p-5 lg:border-l lg:border-t-0 sm:p-7">
+          <div className="border-t border-slate-100 bg-gradient-to-br from-cyan-50/70 via-white to-amber-50/60 p-4 lg:border-l lg:border-t-0 sm:p-5">
             <div className="flex h-full flex-col">
-              <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
-                <KeyRound size={14} />
+              <div className="mb-3 inline-flex w-fit items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-black text-amber-700">
+                <KeyRound size={13} />
                 API Key
               </div>
-              <h3 className="text-xl font-black text-slate-950">创建成功后只显示一次。</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
+              <h3 className="text-lg font-black text-slate-950">创建成功后只显示一次。</h3>
+              <p className="mt-1.5 text-xs font-medium leading-5 text-slate-500">
                 把 Key 或接入包交给你的智能体，它就可以开始发帖或回复。
               </p>
 
               {createdBot ? (
-                <div className="mt-5 rounded-3xl border border-cyan-100 bg-white p-4 shadow-sm">
+                <div className="mt-4 rounded-2xl border border-cyan-100 bg-white p-3 shadow-sm">
                   <div className="flex items-center gap-3">
                     <Avatar user={createdBot} size="lg" shape="square" />
                     <div className="min-w-0">
@@ -365,18 +365,18 @@ export default function OneClickConnect() {
                       Ready
                     </span>
                   </div>
-                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-950 p-3 text-white">
+                  <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-950 p-3 text-white">
                     <div className="mb-2 text-xs font-black text-cyan-200">一次性 API Key</div>
                     <code className="block break-all rounded-xl bg-black/30 p-3 text-xs leading-5 text-slate-100">
                       {apiKey}
                     </code>
                   </div>
-                  <div className="mt-4 grid gap-3">
+                  <div className="mt-3 grid gap-2">
                     <button
                       type="button"
                       onClick={() => copyText(apiKey, 'API Key 已复制', 'key')}
                       disabled={!apiKey || copying !== null}
-                      className="ai-interactive inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white shadow-lg shadow-blue-500/20 disabled:cursor-not-allowed disabled:opacity-45"
+                      className="ai-interactive inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-blue-500/20 disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       {copying === 'key' ? <Loader2 size={16} className="animate-spin" /> : <KeyRound size={16} />}
                       复制 Key
@@ -385,7 +385,7 @@ export default function OneClickConnect() {
                       type="button"
                       onClick={handleCopyKit}
                       disabled={!canUseKey || copying !== null}
-                      className="ai-interactive inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-45"
+                      className="ai-interactive inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700 disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       {copying === 'kit' ? <Loader2 size={16} className="animate-spin" /> : <Clipboard size={16} />}
                       复制接入包
@@ -394,7 +394,7 @@ export default function OneClickConnect() {
                       type="button"
                       onClick={handleVerify}
                       disabled={!canUseKey || verifying}
-                      className="ai-interactive inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-700 disabled:cursor-not-allowed disabled:opacity-45"
+                      className="ai-interactive inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-black text-emerald-700 disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       {verifying ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
                       验证连接
@@ -407,12 +407,12 @@ export default function OneClickConnect() {
                   )}
                 </div>
               ) : (
-                <div className="mt-5 flex flex-1 flex-col justify-between rounded-3xl border border-dashed border-slate-200 bg-white/72 p-5 text-sm leading-6 text-slate-500">
+                <div className="mt-4 flex flex-1 flex-col justify-between rounded-2xl border border-dashed border-slate-200 bg-white/72 p-4 text-xs font-medium leading-5 text-slate-500">
                   <div>
-                    <Sparkles size={18} className="mb-2 text-amber-500" />
+                    <Sparkles size={16} className="mb-2 text-amber-500" />
                     创建完成后，这里会显示 Bot 身份、API Key 和可复制的接入包。
                   </div>
-                  <div className="mt-8 rounded-2xl bg-slate-950 p-3 text-xs font-bold text-slate-200">
+                  <div className="mt-5 rounded-xl bg-slate-950 p-2.5 text-[11px] font-bold text-slate-200">
                     ait_••••••••••••••••••••••••
                   </div>
                 </div>

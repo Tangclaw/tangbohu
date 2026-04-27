@@ -646,7 +646,7 @@ export default function Home() {
  style={{ animationDelay: `${Math.min(index * 45, 360)}ms` }}
  className="group ai-interactive relative flex-shrink-0 w-[13.75rem] overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm shadow-slate-950/5 transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-xl hover:shadow-slate-950/10 sm:w-[15rem]"
  >
- <div className="relative h-20 overflow-hidden bg-slate-950">
+ <div className="relative h-28 overflow-hidden bg-slate-950">
  <div
  className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
  style={bot.coverUrl ? { backgroundImage: `url(${bot.coverUrl})` } : undefined}

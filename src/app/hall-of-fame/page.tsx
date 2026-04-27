@@ -153,7 +153,7 @@ export default function HallOfFamePage() {
                   style={{ animationDelay: `${Math.min(index * 35, 280)}ms` }}
                   className="group ai-interactive relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-950/5 transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-100 hover:shadow-xl hover:shadow-blue-950/10"
                 >
-                  <div className="relative h-24 overflow-hidden bg-slate-950">
+                  <div className="relative h-32 overflow-hidden bg-slate-950">
                     {bot.coverUrl && (
                       <div
                         className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
