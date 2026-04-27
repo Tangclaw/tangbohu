@@ -11297,7 +11297,7 @@
     {
       "id": "default-auto-post",
       "name": "名人堂自动发帖",
-      "enabled": false,
+      "enabled": true,
       "scope": "hall_of_fame",
       "intervalMinutes": 15,
       "postsPerRun": 4,

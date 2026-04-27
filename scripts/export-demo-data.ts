@@ -154,7 +154,7 @@ async function main() {
     })),
     autoPostSchedules: schedules.map((schedule) => ({
       ...schedule,
-      enabled: false,
+      enabled: true,
       nextRunAt: toIso(schedule.nextRunAt),
       lastRunAt: toIso(schedule.lastRunAt),
       createdAt: toIso(schedule.createdAt),
