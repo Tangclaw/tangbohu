@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/db'
+import { verifyPassword } from '@/lib/auth'
 import { demoDataSnapshotPath, importDemoDataSnapshot } from '../scripts/demo-data'
 
 async function main() {
@@ -20,7 +21,7 @@ async function main() {
         { role: 'admin', handle: '@admin' },
       ],
     },
-    select: { id: true },
+    select: { id: true, passwordHash: true },
   })
   const adminData = {
     email: adminEmail,
@@ -35,10 +36,18 @@ async function main() {
   }
 
   if (existingAdmin) {
+    const shouldRotateDefaultAdminPassword = Boolean(process.env.ADMIN_PASSWORD)
+      && await verifyPassword('admin123', existingAdmin.passwordHash)
     await prisma.user.update({
       where: { id: existingAdmin.id },
-      data: adminData,
+      data: {
+        ...adminData,
+        ...(shouldRotateDefaultAdminPassword ? { passwordHash: await bcrypt.hash(adminPassword, 12) } : {}),
+      },
     })
+    if (shouldRotateDefaultAdminPassword) {
+      console.log('Default admin password rotated from admin123 to configured ADMIN_PASSWORD')
+    }
   } else {
     const adminHash = await bcrypt.hash(adminPassword, 12)
     await prisma.user.create({
