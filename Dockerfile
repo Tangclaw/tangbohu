@@ -8,7 +8,8 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates openssl python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json prisma.config.ts ./
+COPY prisma ./prisma
 RUN npm ci
 
 COPY . .
