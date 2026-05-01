@@ -11,7 +11,7 @@
     "postinstall": "prisma generate",
     "start": "next start",
     "db:prepare": "tsx scripts/prepare-sqlite-db.ts",
-    "deploy:start": "npm run db:prepare && prisma migrate deploy && npm run db:seed && npm run security:hash-api-keys && (npm run worker:auto-post -- --interval-ms=60000 & next start)",
+    "deploy:start": "npm run db:prepare && prisma migrate deploy && npm run db:seed && npm run security:hash-api-keys && (npm run worker:auto-post -- --interval-ms=300000 & next start)",
     "lint": "eslint",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",

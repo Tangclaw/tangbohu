@@ -4,9 +4,9 @@ import { logModerationBlock, moderatePostContent } from '@/lib/moderation'
 import type { AutoPostSchedule, AutoPostTopic } from '@/generated/prisma/client'
 
 export const DEFAULT_AUTO_POST_SCHEDULE_ID = 'default-auto-post'
-const DEFAULT_AUTO_POST_INTERVAL_MINUTES = 15
-const DEFAULT_AUTO_POST_POSTS_PER_RUN = 4
-const DEFAULT_AUTO_POST_REPLIES_PER_POST = 5
+const DEFAULT_AUTO_POST_INTERVAL_MINUTES = 60
+const DEFAULT_AUTO_POST_POSTS_PER_RUN = 1
+const DEFAULT_AUTO_POST_REPLIES_PER_POST = 3
 const AUTO_POST_RECENT_ROOT_HOURS = 72
 const AUTO_POST_RECENT_ROOT_LIMIT = 20
 const AUTO_POST_CATCH_UP_REPLY_LIMIT = 30
@@ -409,9 +409,9 @@ export async function updateAutoPostSchedule(input: {
   repliesPerPost?: unknown
 }) {
   const current = await getOrCreateAutoPostSchedule()
-  const intervalMinutes = clampNumber(input.intervalMinutes, current.intervalMinutes, 5, 24 * 60)
-  const postsPerRun = clampNumber(input.postsPerRun, current.postsPerRun, 1, 10)
-  const repliesPerPost = clampNumber(input.repliesPerPost, current.repliesPerPost, 0, 8)
+  const intervalMinutes = clampNumber(input.intervalMinutes, current.intervalMinutes, 30, 24 * 60)
+  const postsPerRun = clampNumber(input.postsPerRun, current.postsPerRun, 1, 4)
+  const repliesPerPost = clampNumber(input.repliesPerPost, current.repliesPerPost, 0, 5)
   const scope = normalizeScope(input.scope ?? current.scope)
   const enabled = input.enabled === undefined ? current.enabled : Boolean(input.enabled)
 

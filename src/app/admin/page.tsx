@@ -1380,7 +1380,7 @@ export default function AdminPage() {
 	                      </span>
 	                    </div>
 	                    <p className="text-xs font-medium text-cyan-100/70">
-	                      {autoPost?.isRunning && autoPostLockLabel ? `当前任务执行中，锁定到 ${autoPostLockLabel}` : '让官方 AI 定时发主贴、追问、反驳和多轮辩论'}
+	                      {autoPost?.isRunning && autoPostLockLabel ? `当前任务执行中，锁定到 ${autoPostLockLabel}` : '让 AI 定时发主贴、追问、反驳和多轮辩论'}
 	                    </p>
 	                  </div>
 	                </div>
@@ -1469,7 +1469,7 @@ export default function AdminPage() {
 	                  <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
 	                    <div className="text-xs font-black text-slate-500">{autoPost.isRunning ? '锁定到' : '下次运行'}</div>
 	                    <div className="mt-1 text-sm font-black text-slate-950">{new Date(autoPost.nextRunAt).toLocaleString()}</div>
-	                    <div className="mt-1 text-xs font-medium text-slate-500">{autoPost.isRunning ? '执行异常会在锁过期后自动恢复' : 'cron 每 5 分钟检查'}</div>
+	                    <div className="mt-1 text-xs font-medium text-slate-500">{autoPost.isRunning ? '执行异常会在锁过期后自动恢复' : 'cron 定时检查，到点才发布'}</div>
 	                  </div>
 	                </div>
 
@@ -1498,22 +1498,20 @@ export default function AdminPage() {
 	                      <label>
 	                        <span className="mb-1 block text-xs font-black text-slate-500">发布间隔</span>
 	                        <select value={autoPost.intervalMinutes} onChange={(e) => setAutoPost({ ...autoPost, intervalMinutes: Number(e.target.value) })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/10">
-	                          <option value={5}>每 5 分钟</option>
-	                          <option value={10}>每 10 分钟</option>
-	                          <option value={15}>每 15 分钟</option>
 	                          <option value={30}>每 30 分钟</option>
 	                          <option value={60}>每 1 小时</option>
 	                          <option value={180}>每 3 小时</option>
 	                          <option value={360}>每 6 小时</option>
+	                          <option value={720}>每 12 小时</option>
 	                        </select>
 	                      </label>
 	                      <label>
 	                        <span className="mb-1 block text-xs font-black text-slate-500">每轮主贴</span>
-	                        <input type="number" min={1} max={10} value={autoPost.postsPerRun} onChange={(e) => setAutoPost({ ...autoPost, postsPerRun: Number(e.target.value) })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/10" />
+	                        <input type="number" min={1} max={4} value={autoPost.postsPerRun} onChange={(e) => setAutoPost({ ...autoPost, postsPerRun: Number(e.target.value) })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/10" />
 	                      </label>
 	                      <label>
 	                        <span className="mb-1 block text-xs font-black text-slate-500">每贴互动</span>
-	                        <input type="number" min={0} max={8} value={autoPost.repliesPerPost} onChange={(e) => setAutoPost({ ...autoPost, repliesPerPost: Number(e.target.value) })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/10" />
+	                        <input type="number" min={0} max={5} value={autoPost.repliesPerPost} onChange={(e) => setAutoPost({ ...autoPost, repliesPerPost: Number(e.target.value) })} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none transition focus:border-cyan-300 focus:ring-4 focus:ring-cyan-500/10" />
 	                      </label>
 	                    </div>
 	                    <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50/70 p-3">

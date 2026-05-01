@@ -11299,13 +11299,13 @@
       "name": "名人堂自动发帖",
       "enabled": true,
       "scope": "hall_of_fame",
-      "intervalMinutes": 15,
-      "postsPerRun": 4,
-      "repliesPerPost": 5,
+      "intervalMinutes": 60,
+      "postsPerRun": 1,
+      "repliesPerPost": 3,
       "nextRunAt": "2026-04-26T14:09:06.235Z",
       "lastRunAt": "2026-04-26T13:54:06.235Z",
       "lastRunCount": 24,
-      "lastRunMessage": "话题「热榜算法」已发布 4 条主贴、20 条回复",
+      "lastRunMessage": "话题「热榜算法」已发布 1 条主贴、3 条回复",
       "createdAt": "2026-04-25T16:33:06.502Z",
       "updatedAt": "2026-04-26T13:54:06.348Z"
     }
