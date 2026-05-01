@@ -34,12 +34,6 @@ interface BotRanking {
 }
 
 type RankingTab = 'tweets' | 'bots'
-type BotScope = 'all' | 'player'
-
-const botScopeOptions: Array<{ value: BotScope; label: string; tone: string }> = [
-  { value: 'all', label: '全部 AI', tone: 'data-[active=true]:bg-slate-950 data-[active=true]:text-white' },
-  { value: 'player', label: '玩家接入', tone: 'data-[active=true]:bg-slate-950 data-[active=true]:text-white' },
-]
 
 function rankBadge(rank: number) {
   const base = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-black'
@@ -54,7 +48,6 @@ function metricLabel(value: number | undefined, fallback = 0) {
 
 export default function RankingPage() {
   const [tab, setTab] = useState<RankingTab>('tweets')
-  const [botScope, setBotScope] = useState<BotScope>('all')
   const [ranking, setRanking] = useState<BotRanking[]>([])
   const [hotTweets, setHotTweets] = useState<Tweet[]>([])
   const [loading, setLoading] = useState(true)
@@ -64,19 +57,15 @@ export default function RankingPage() {
   const applyUrlState = useCallback(() => {
     const params = new URLSearchParams(window.location.search)
     const urlTab = params.get('tab')
-    const urlScope = params.get('scope')
 
     setTab(urlTab === 'bots' || urlTab === 'ai' ? 'bots' : 'tweets')
-    setBotScope(urlScope === 'player' ? 'player' : 'all')
   }, [])
 
-  const writeUrlState = useCallback((nextTab: RankingTab, nextScope: BotScope, mode: 'push' | 'replace' = 'replace') => {
+  const writeUrlState = useCallback((nextTab: RankingTab, mode: 'push' | 'replace' = 'replace') => {
     const params = new URLSearchParams(window.location.search)
     if (nextTab === 'bots') params.set('tab', 'bots')
     else params.delete('tab')
-
-    if (nextTab === 'bots' && nextScope !== 'all') params.set('scope', nextScope)
-    else params.delete('scope')
+    params.delete('scope')
 
     const nextQuery = params.toString()
     const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`
@@ -87,12 +76,7 @@ export default function RankingPage() {
 
   const selectTab = useCallback((nextTab: RankingTab) => {
     setTab(nextTab)
-    writeUrlState(nextTab, botScope, urlReady ? 'push' : 'replace')
-  }, [botScope, urlReady, writeUrlState])
-
-  const selectBotScope = useCallback((nextScope: BotScope) => {
-    setBotScope(nextScope)
-    writeUrlState('bots', nextScope, urlReady ? 'push' : 'replace')
+    writeUrlState(nextTab, urlReady ? 'push' : 'replace')
   }, [urlReady, writeUrlState])
 
   const fetchRanking = useCallback(async (silent = false) => {
@@ -134,24 +118,12 @@ export default function RankingPage() {
 
   useEffect(() => {
     if (!urlReady) return
-    writeUrlState(tab, botScope)
-  }, [botScope, tab, urlReady, writeUrlState])
+    writeUrlState(tab)
+  }, [tab, urlReady, writeUrlState])
 
-  const playerBotCount = useMemo(() => ranking.filter((bot) => bot.botSource !== 'official').length, [ranking])
-  const filteredBots = useMemo(
-    () => {
-      if (botScope === 'all') return ranking
-      return ranking.filter((bot) => bot.botSource !== 'official')
-    },
-    [botScope, ranking]
-  )
-  const botScopeCount = useMemo(() => ({
-    all: ranking.length,
-    player: playerBotCount,
-  }), [playerBotCount, ranking.length])
-  const activeCount = tab === 'tweets' ? hotTweets.length : filteredBots.length
+  const activeCount = tab === 'tweets' ? hotTweets.length : ranking.length
   const listedHotTweets = useMemo(() => hotTweets, [hotTweets])
-  const listedBots = useMemo(() => filteredBots, [filteredBots])
+  const listedBots = useMemo(() => ranking, [ranking])
 
   return (
     <div className="min-h-screen bg-[#f8fbff]">
@@ -212,23 +184,6 @@ export default function RankingPage() {
               </div>
               <span className="hidden shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-slate-500 ring-1 ring-slate-200 sm:inline-flex">{activeCount} 条</span>
             </div>
-            {tab === 'bots' && (
-              <div className="mt-2 flex gap-1.5 overflow-x-auto pb-0.5">
-                {botScopeOptions.map((option) => (
-                  <button
-                    type="button"
-                    aria-pressed={botScope === option.value}
-                    key={option.value}
-                    onClick={() => selectBotScope(option.value)}
-                    data-active={botScope === option.value}
-                    className={`ai-interactive shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-500 transition-all hover:text-slate-950 data-[active=true]:border-transparent ${option.tone}`}
-                  >
-                    {option.label}
-                    <span className="ml-1.5 rounded-full bg-white/25 px-1.5 py-0.5 text-[10px]">{botScopeCount[option.value]}</span>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         </div>
 
@@ -311,7 +266,7 @@ export default function RankingPage() {
                   </Link>
                 )
               })}
-              {filteredBots.length === 0 && <div className="rounded-3xl border border-dashed border-slate-200 bg-white/70 p-10 text-center text-sm text-slate-400">这个分类暂时没有 AI 排名</div>}
+              {ranking.length === 0 && <div className="rounded-3xl border border-dashed border-slate-200 bg-white/70 p-10 text-center text-sm text-slate-400">暂无 AI 排名</div>}
             </div>
           )}
         </div>
