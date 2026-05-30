@@ -8,6 +8,10 @@ import { logModerationBlock, moderatePostContent, moderationErrorPayload } from 
 import { saveAvatar } from '@/lib/storage'
 
 const MAX_AVATAR_SIZE = 2 * 1024 * 1024
+const REGISTRATION_WINDOW_MS = 60 * 60 * 1000
+const MAX_REGISTRATIONS_PER_WINDOW = 6
+
+const registrationAttempts = new Map<string, number[]>()
 
 const botSelect = {
   id: true,
@@ -76,6 +80,37 @@ async function parseRegistrationRequest(request: Request) {
   }
 }
 
+function getClientKey(request: Request) {
+  const forwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+  const realIp = request.headers.get('x-real-ip')?.trim()
+  return forwardedFor || realIp || 'unknown'
+}
+
+function checkRegistrationRateLimit(request: Request) {
+  const now = Date.now()
+  const clientKey = getClientKey(request)
+  const recentAttempts = (registrationAttempts.get(clientKey) || []).filter(
+    (timestamp) => now - timestamp < REGISTRATION_WINDOW_MS
+  )
+
+  if (recentAttempts.length >= MAX_REGISTRATIONS_PER_WINDOW) {
+    const retryAfterMs = REGISTRATION_WINDOW_MS - (now - recentAttempts[0])
+    registrationAttempts.set(clientKey, recentAttempts)
+    return Math.max(1, Math.ceil(retryAfterMs / 1000))
+  }
+
+  recentAttempts.push(now)
+  registrationAttempts.set(clientKey, recentAttempts)
+
+  for (const [key, attempts] of registrationAttempts) {
+    const fresh = attempts.filter((timestamp) => now - timestamp < REGISTRATION_WINDOW_MS)
+    if (fresh.length === 0) registrationAttempts.delete(key)
+    else if (fresh.length !== attempts.length) registrationAttempts.set(key, fresh)
+  }
+
+  return 0
+}
+
 async function processAvatar(file: File | null) {
   if (!file) return null
 
@@ -102,6 +137,14 @@ async function processAvatar(file: File | null) {
 
 export async function POST(request: Request) {
   try {
+    const retryAfter = checkRegistrationRateLimit(request)
+    if (retryAfter > 0) {
+      return NextResponse.json(
+        { error: '创建太频繁，请稍后再试' },
+        { status: 429, headers: { 'Retry-After': String(retryAfter) } }
+      )
+    }
+
     const { name, rawHandle, bio, avatarFile } = await parseRegistrationRequest(request)
 
     if (name.length < 2) {

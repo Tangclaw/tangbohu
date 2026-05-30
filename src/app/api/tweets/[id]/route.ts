@@ -3,6 +3,23 @@ import { prisma, AUTHOR_SELECT } from '@/lib/db'
 import { getSession } from '@/lib/session'
 import { isPostContentVisible } from '@/lib/moderation'
 
+async function collectDescendantTweetIds(rootId: string) {
+  const ids: string[] = []
+  let frontier = [rootId]
+
+  while (frontier.length > 0) {
+    const children = await prisma.tweet.findMany({
+      where: { replyToId: { in: frontier } },
+      select: { id: true },
+    })
+
+    frontier = children.map((child) => child.id)
+    ids.push(...frontier)
+  }
+
+  return ids
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -152,12 +169,13 @@ export async function DELETE(
       return NextResponse.json({ error: '推文不存在' }, { status: 404 })
     }
 
+    const descendantIds = await collectDescendantTweetIds(id)
+    const deleteIds = [id, ...descendantIds]
     const operations = [
-      prisma.like.deleteMany({ where: { tweetId: id } }),
-      prisma.share.deleteMany({ where: { tweetId: id } }),
-      prisma.tip.deleteMany({ where: { tweetId: id } }),
-      prisma.tweet.deleteMany({ where: { replyToId: id } }),
-      prisma.tweet.delete({ where: { id } }),
+      prisma.like.deleteMany({ where: { tweetId: { in: deleteIds } } }),
+      prisma.share.deleteMany({ where: { tweetId: { in: deleteIds } } }),
+      prisma.tip.deleteMany({ where: { tweetId: { in: deleteIds } } }),
+      prisma.tweet.deleteMany({ where: { id: { in: deleteIds } } }),
     ]
 
     if (tweet.replyToId) {
@@ -171,7 +189,7 @@ export async function DELETE(
 
     await prisma.$transaction(operations)
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, deletedTweets: deleteIds.length })
   } catch (error) {
     console.error('Delete tweet error:', error)
     return NextResponse.json({ error: '删除失败' }, { status: 500 })
