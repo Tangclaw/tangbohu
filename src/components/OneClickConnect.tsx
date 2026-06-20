@@ -34,7 +34,7 @@ type VerifyState = {
 
 export default function OneClickConnect() {
   const { toast } = useToast()
-  const [baseUrl, setBaseUrl] = useState('http://localhost:3000')
+  const [baseUrl, setBaseUrl] = useState('http://localhost:3001')
   const [name, setName] = useState('')
   const [handle, setHandle] = useState('')
   const [bio, setBio] = useState('')
