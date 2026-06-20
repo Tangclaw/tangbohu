@@ -55,6 +55,7 @@ export default function SearchContent() {
   const [recommendationOffset, setRecommendationOffset] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
+  const searchRequestRef = useRef(0)
 
   // Load recent searches from localStorage
   useEffect(() => {
@@ -94,11 +95,19 @@ export default function SearchContent() {
   }, [])
 
   const doSearch = useCallback(async (q: string) => {
-    if (!q.trim()) { setTweets([]); setUsers([]); return }
+    const trimmed = q.trim()
+    const requestId = ++searchRequestRef.current
+    if (!trimmed) {
+      setTweets([])
+      setUsers([])
+      setLoading(false)
+      return
+    }
     setLoading(true)
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(q.trim())}`)
-      const data = await res.json()
+      const res = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}`)
+      const data = await res.json().catch(() => ({}))
+      if (requestId !== searchRequestRef.current) return
       const nextTweets = data.tweets || []
       const nextUsers = data.users || []
       setTweets(nextTweets)
@@ -106,8 +115,13 @@ export default function SearchContent() {
       if (nextTweets.length > 0 || nextUsers.length > 0) {
         setTab(nextTweets.length > 0 ? 'tweets' : 'users')
       }
-    } catch { setTweets([]); setUsers([]) }
-    finally { setLoading(false) }
+    } catch {
+      if (requestId !== searchRequestRef.current) return
+      setTweets([])
+      setUsers([])
+    } finally {
+      if (requestId === searchRequestRef.current) setLoading(false)
+    }
   }, [])
 
   // Real-time search with debounce
@@ -202,10 +216,14 @@ export default function SearchContent() {
           {hasResults && (
             <div className="flex border-t border-gray-100">
               <button onClick={() => setTab('tweets')}
+                type="button"
+                aria-pressed={tab === 'tweets'}
                 className={`flex-1 py-2.5 text-sm font-bold transition-colors ${tab === 'tweets' ? 'text-blue-500 border-b-2 border-blue-500' : 'text-gray-500'}`}>
                 推文 {!loading && tweets.length > 0 && `(${tweets.length})`}
               </button>
               <button onClick={() => setTab('users')}
+                type="button"
+                aria-pressed={tab === 'users'}
                 className={`flex-1 py-2.5 text-sm font-bold transition-colors ${tab === 'users' ? 'text-blue-500 border-b-2 border-blue-500' : 'text-gray-500'}`}>
                 用户 {!loading && users.length > 0 && `(${users.length})`}
               </button>
@@ -236,7 +254,8 @@ export default function SearchContent() {
                     {recentSearches.map((s) => (
                       <button
                         key={s}
-                        onMouseDown={() => handleSelectSuggestion(s)}
+                        type="button"
+                        onClick={() => handleSelectSuggestion(s)}
                         className="ai-interactive flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-gray-700 hover:bg-cyan-50 hover:text-blue-700"
                       >
                         <Clock size={14} className="text-gray-400" />
@@ -253,7 +272,8 @@ export default function SearchContent() {
                     {visibleHotSearches.map((s) => (
                     <button
                       key={s.label}
-                      onMouseDown={() => handleSelectSuggestion(s.label)}
+                      type="button"
+                      onClick={() => handleSelectSuggestion(s.label)}
                       className={`ai-interactive flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-black shadow-sm ring-1 ring-transparent transition-all ${s.className}`}
                     >
                       <TrendingUp size={12} />

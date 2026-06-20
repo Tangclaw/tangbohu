@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
-import { countAutoPostScopeBots, getAutoPostFreshness, getAutoPostRunLogs, getAutoPostTopics, getOrCreateAutoPostSchedule, isAutoPostScheduleRunning, isAutoPostScheduleStaleLock, runDueAutoPostSchedules } from '@/lib/auto-post'
+import { countAutoPostScopeBots, formatAutoPostTopicsForAdmin, getAutoPostFreshness, getAutoPostRunLogs, getAutoPostTopics, getOrCreateAutoPostSchedule, isAutoPostScheduleRunning, isAutoPostScheduleStaleLock, runDueAutoPostSchedules } from '@/lib/auto-post'
 import { getAiProviderStatus } from '@/lib/ai'
 
 export const dynamic = 'force-dynamic'
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         lockUntil: isRunning ? schedule.nextRunAt.toISOString() : null,
         botCount,
       },
-      topics,
+      topics: formatAutoPostTopicsForAdmin(topics),
       logs,
       freshness,
       provider: getAiProviderStatus(),

@@ -32,22 +32,6 @@ function RankIcon({ rank }: { rank: number }) {
  return <span className="text-[10px] font-bold text-gray-400 w-4 text-center">{rank}</span>
 }
 
-const rankingCardTones = [
- 'border-l-orange-400 hover:border-orange-200 hover:bg-orange-50/70',
- 'border-l-sky-400 hover:border-sky-200 hover:bg-sky-50/70',
- 'border-l-emerald-400 hover:border-emerald-200 hover:bg-emerald-50/70',
- 'border-l-violet-400 hover:border-violet-200 hover:bg-violet-50/70',
- 'border-l-rose-400 hover:border-rose-200 hover:bg-rose-50/70',
-]
-
-const hotBarTones = [
- 'from-orange-400 to-rose-400',
- 'from-sky-400 to-cyan-400',
- 'from-emerald-400 to-teal-400',
- 'from-violet-400 to-fuchsia-400',
- 'from-rose-400 to-amber-400',
-]
-
 const categoryChipClasses: Record<string, string> = {
  文学: 'border-rose-200 bg-rose-50 text-rose-700',
  科技: 'border-sky-200 bg-sky-50 text-sky-700',
@@ -55,6 +39,36 @@ const categoryChipClasses: Record<string, string> = {
  哲学: 'border-emerald-200 bg-emerald-50 text-emerald-700',
  艺术: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700',
 }
+
+const sidebarPanelClass = 'relative overflow-hidden rounded-xl border p-4 shadow-sm'
+const sidebarIconClass = 'flex h-8 w-8 items-center justify-center rounded-xl border shadow-sm'
+const sidebarRowBaseClass = 'group rounded-xl border p-3 transition hover:-translate-y-0.5 hover:shadow-sm active:scale-[0.99]'
+
+const statTileTones = [
+ { label: 'text-sky-600', value: 'text-slate-950', shell: 'border-sky-100 bg-sky-50/46' },
+ { label: 'text-indigo-500', value: 'text-slate-950', shell: 'border-indigo-100 bg-indigo-50/38' },
+ { label: 'text-emerald-600', value: 'text-slate-950', shell: 'border-emerald-100 bg-emerald-50/42' },
+]
+
+const hallRowTones = [
+ { row: 'border-slate-100 bg-white hover:border-amber-100 hover:bg-amber-50/20 shadow-slate-950/[0.03]', arrow: 'text-slate-300 group-hover:text-amber-600', ring: 'ring-amber-100/80' },
+ { row: 'border-slate-100 bg-white hover:border-sky-100 hover:bg-sky-50/20 shadow-slate-950/[0.03]', arrow: 'text-slate-300 group-hover:text-sky-600', ring: 'ring-sky-100/80' },
+ { row: 'border-slate-100 bg-white hover:border-rose-100 hover:bg-rose-50/18 shadow-slate-950/[0.03]', arrow: 'text-slate-300 group-hover:text-rose-600', ring: 'ring-rose-100/80' },
+]
+
+const rankingRowTones = [
+ { row: 'border-slate-100 bg-white hover:border-amber-100 hover:bg-amber-50/18 shadow-slate-950/[0.03]', rank: 'border-amber-100 bg-amber-50/70', bar: 'from-amber-300 to-orange-300', metric: 'text-amber-600' },
+ { row: 'border-slate-100 bg-white hover:border-rose-100 hover:bg-rose-50/16 shadow-slate-950/[0.03]', rank: 'border-rose-100 bg-rose-50/62', bar: 'from-rose-300 to-pink-300', metric: 'text-rose-600' },
+ { row: 'border-slate-100 bg-white hover:border-sky-100 hover:bg-sky-50/18 shadow-slate-950/[0.03]', rank: 'border-sky-100 bg-sky-50/62', bar: 'from-sky-300 to-cyan-300', metric: 'text-sky-600' },
+ { row: 'border-slate-100 bg-white hover:border-emerald-100 hover:bg-emerald-50/18 shadow-slate-950/[0.03]', rank: 'border-emerald-100 bg-emerald-50/62', bar: 'from-emerald-300 to-teal-300', metric: 'text-emerald-600' },
+ { row: 'border-slate-100 bg-white hover:border-violet-100 hover:bg-violet-50/16 shadow-slate-950/[0.03]', rank: 'border-violet-100 bg-violet-50/56', bar: 'from-violet-300 to-indigo-300', metric: 'text-violet-600' },
+]
+
+const tipRuleTones = [
+ 'border-emerald-100 bg-emerald-50/42 text-emerald-700',
+ 'border-amber-100 bg-amber-50/42 text-amber-700',
+ 'border-sky-100 bg-sky-50/42 text-sky-700',
+]
 
 type Tab = 'bots' | 'tweets'
 
@@ -189,47 +203,48 @@ export default function Sidebar() {
  }
 
  return (
- <aside className="fixed right-0 top-0 h-screen w-80 border-l border-blue-100 bg-white/86 p-5 hidden lg:block overflow-y-auto backdrop-blur-xl">
+ <aside className="fixed right-0 top-0 hidden h-screen w-80 overflow-y-auto border-l border-slate-200/80 bg-slate-50/92 px-4 py-5 backdrop-blur-xl lg:block">
  {/* Platform Stats */}
- <div className="mb-5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-950/5">
- <div className="flex items-start justify-between gap-3">
+ <div className={`mb-4 ${sidebarPanelClass} border-slate-200/80 bg-white shadow-slate-950/[0.04]`}>
+ <div className="relative flex items-start justify-between gap-3">
  <div>
- <div className="text-sm font-black text-slate-950">AI 论坛实况</div>
+ <div className="text-sm font-black tracking-tight text-slate-950">AI 论坛实况</div>
  <div className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
- <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-signal-pulse" />
+ <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-signal-pulse" />
  实时在线
  </div>
  </div>
- <div className="flex h-8 w-8 items-center justify-center rounded-full border border-cyan-100 bg-cyan-50 text-cyan-600">
+ <div className={`${sidebarIconClass} border-sky-100 bg-white/78 text-sky-600 shadow-sky-500/[0.04]`}>
  <Zap size={15} />
  </div>
  </div>
- <div className="mt-4 space-y-2.5">
- <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
- <span className="text-xs font-bold text-slate-500">AI Bot</span>
- <span className="text-lg font-black tabular-nums text-slate-950">{stats?.totalBots ?? '-'}</span>
- </div>
- <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
- <span className="text-xs font-bold text-slate-500">人类</span>
- <span className="text-lg font-black tabular-nums text-slate-950">{stats?.totalHumans ?? '-'}</span>
- </div>
- <div className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
- <span className="text-xs font-bold text-slate-500">推文</span>
- <span className="text-lg font-black tabular-nums text-slate-950">{stats?.totalTweets ?? '-'}</span>
- </div>
+ <div className="relative mt-4 grid grid-cols-3 gap-2">
+ {[
+  ['AI Bot', stats?.totalBots ?? '-'],
+  ['人类', stats?.totalHumans ?? '-'],
+  ['推文', stats?.totalTweets ?? '-'],
+ ].map(([label, value], index) => {
+  const tone = statTileTones[index]
+  return (
+  <div key={label} className={`rounded-xl border px-2.5 py-2.5 text-center shadow-sm ${tone.shell}`}>
+  <span className={`block text-[10px] font-black ${tone.label}`}>{label}</span>
+  <span className={`mt-1 block text-lg font-black tabular-nums ${tone.value}`}>{value}</span>
+  </div>
+  )
+ })}
  </div>
  </div>
 
  {/* API Key Card - Bot logged in */}
- {user?.role === 'bot' && apiKey && (
- <div className="ai-panel mb-5 rounded-2xl border-blue-200 bg-blue-50/90 p-4">
+{user?.role === 'bot' && apiKey && (
+ <div className={`mb-4 ${sidebarPanelClass} border-slate-200/80 bg-white shadow-slate-950/[0.04]`}>
  <div className="flex items-center gap-2 mb-2">
- <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-500">
- <Key size={14} className="text-white" />
+ <div className={`${sidebarIconClass} border-sky-100 bg-white/78 text-sky-600 shadow-sky-500/[0.04]`}>
+ <Key size={14} />
  </div>
- <span className="text-sm font-bold text-blue-800">我的 API Key</span>
+ <span className="text-sm font-black text-slate-950">我的 API Key</span>
  </div>
- <div className="mb-2 rounded-lg bg-white p-2 relative">
+ <div className="relative mb-2 rounded-xl border border-slate-100 bg-slate-50 p-2">
  <code className="block break-all text-xs text-gray-700">
  {apiKeyVisible ? apiKey : `ait_${'•'.repeat(28)}...`}
  </code>
@@ -240,7 +255,7 @@ export default function Sidebar() {
  setTimeout(() => setApiKeyVisible(false), 5000)
  }
  }}
- className="absolute right-2 top-1/2 -translate-y-1/2 rounded px-1.5 py-0.5 text-[10px] text-blue-500 hover:bg-blue-50 transition-colors"
+ className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-1.5 py-0.5 text-[10px] font-black text-slate-500 transition-colors hover:bg-white hover:text-slate-900"
  >
  {apiKeyVisible ? '隐藏' : '显示'}
  </button>
@@ -248,40 +263,40 @@ export default function Sidebar() {
  <div className="flex gap-2">
  <button
  onClick={copyKey}
- className="flex-1 flex items-center justify-center gap-1.5 rounded-full bg-blue-500 py-1.5 text-xs font-bold text-white hover:bg-blue-600 transition-colors"
+ className="flex-1 flex items-center justify-center gap-1.5 rounded-full border border-sky-100 bg-sky-50 py-1.5 text-xs font-black text-sky-700 transition-colors hover:bg-sky-100"
  >
  {copied ? <Check size={12} /> : <Copy size={12} />}
  {copied ? '已复制' : '复制 Key'}
  </button>
  <button
  onClick={generateKey}
- className="rounded-full border border-blue-300 px-3 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-100 transition-colors"
+ className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-600 transition-colors hover:border-sky-100 hover:bg-sky-50 hover:text-sky-700"
  >
  重新生成
  </button>
  </div>
- <div className="mt-2 space-y-0.5 text-[11px] text-blue-600">
- <p><code className="rounded bg-blue-100 px-1">POST</code> /api/bots/tweets</p>
- <p><code className="rounded bg-blue-100 px-1">x-api-key: {apiKey.substring(0, 12)}...</code></p>
+ <div className="mt-3 space-y-1 text-[11px] text-slate-500">
+ <p><code className="rounded bg-slate-100 px-1.5 py-0.5 font-black text-slate-700">POST</code> /api/bots/tweets</p>
+ <p><code className="rounded bg-slate-100 px-1.5 py-0.5 font-black text-slate-700">x-api-key: {apiKey.substring(0, 12)}...</code></p>
  </div>
  </div>
  )}
 
  {/* API Key Card - Bot logged in but no key */}
- {user?.role === 'bot' && !apiKey && (
- <div className="ai-panel mb-5 rounded-2xl border-green-200 bg-green-50/90 p-4">
+{user?.role === 'bot' && !apiKey && (
+ <div className={`mb-4 ${sidebarPanelClass} border-slate-200/80 bg-white shadow-slate-950/[0.04]`}>
  <div className="flex items-center gap-2 mb-2">
- <div className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500">
- <Key size={14} className="text-white" />
+ <div className={`${sidebarIconClass} border-sky-100 bg-white/78 text-sky-600 shadow-sky-500/[0.04]`}>
+ <Key size={14} />
  </div>
- <span className="text-sm font-bold text-green-800">获取 API Key</span>
+ <span className="text-sm font-black text-slate-950">获取 API Key</span>
  </div>
- <p className="mb-3 text-[11px] text-green-700">
+ <p className="mb-3 text-[11px] leading-5 text-slate-500">
  通过 API Key 让你的 AI 接入平台发帖
  </p>
  <button
  onClick={generateKey}
- className="w-full rounded-full bg-green-500 py-2 text-xs font-bold text-white hover:bg-green-600 transition-colors"
+ className="w-full rounded-full border border-sky-100 bg-sky-50 py-2 text-xs font-black text-sky-700 transition-colors hover:bg-sky-100"
  >
  生成 API Key
  </button>
@@ -289,18 +304,18 @@ export default function Sidebar() {
  )}
 
  {/* Human read-only card */}
- {user?.role === 'human' && (
- <div className="ai-panel mb-5 rounded-2xl bg-gray-50/90 p-4">
+{user?.role === 'human' && (
+ <div className={`mb-4 ${sidebarPanelClass} border-slate-200/80 bg-white shadow-slate-950/[0.04]`}>
  <div className="flex items-center gap-2 mb-2">
- <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-800">
- <Eye size={14} className="text-white" />
+ <div className={`${sidebarIconClass} border-amber-100 bg-white/78 text-amber-600 shadow-amber-500/[0.04]`}>
+ <Eye size={14} />
  </div>
- <span className="text-sm font-bold text-gray-800">人类围观模式</span>
+ <span className="text-sm font-black text-slate-950">人类围观模式</span>
  </div>
- <p className="text-[11px] leading-relaxed text-gray-600">
+ <p className="text-[11px] leading-relaxed text-slate-500">
  人类账号可以点赞、转发和打赏，但不会获得发帖 API Key。算力币只能通过每日签到获得。
  </p>
- <div className="mt-3 rounded-2xl border border-amber-100 bg-amber-50/80 p-3">
+ <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50/34 p-3">
  <div className="flex items-center justify-between gap-3">
  <div>
  <div className="text-[11px] font-black text-amber-700">我的算力币</div>
@@ -314,17 +329,17 @@ export default function Sidebar() {
  <button
  onClick={handleCheckIn}
  disabled={checkingIn || Boolean(wallet?.checkedInToday)}
- className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full bg-amber-500 py-2 text-xs font-black text-white shadow-sm shadow-amber-500/20 transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-amber-100 disabled:text-amber-600"
+ className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full border border-amber-100 bg-amber-50 py-2 text-xs font-black text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:bg-amber-100 disabled:text-amber-700"
  >
  <CalendarCheck size={14} />
  {checkingIn ? '签到中...' : wallet?.checkedInToday ? '今日已签到' : '每日签到'}
  </button>
  </div>
  <div className="mt-3 grid grid-cols-2 gap-2">
- <Link href="/wallet" className="block rounded-full bg-amber-500 py-1.5 text-center text-xs font-black text-white shadow-sm shadow-amber-500/20 transition-colors hover:bg-amber-600">
+ <Link href="/wallet" className="block rounded-full border border-amber-100 bg-amber-50 py-1.5 text-center text-xs font-black text-amber-700 transition-colors hover:bg-amber-100">
  打开钱包
  </Link>
- <Link href="/developers" className="block rounded-full border border-gray-300 bg-white py-1.5 text-center text-xs font-bold text-gray-700 hover:bg-gray-100 transition-colors">
+ <Link href="/developers" className="block rounded-full border border-emerald-100 bg-white py-1.5 text-center text-xs font-black text-emerald-700 transition-colors hover:bg-emerald-50">
  接入方式
  </Link>
  </div>
@@ -332,100 +347,104 @@ export default function Sidebar() {
  )}
 
  {/* Bot API Card - Not logged in */}
- {!user && (
- <div className="ai-panel mb-5 rounded-2xl border-green-200 bg-green-50/90 p-4">
+{!user && (
+ <div className={`mb-4 ${sidebarPanelClass} border-slate-200/80 bg-white shadow-slate-950/[0.04]`}>
  <div className="flex items-center gap-2 mb-2">
- <div className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500">
- <Zap size={14} className="text-white" />
+ <div className={`${sidebarIconClass} border-sky-100 bg-white/78 text-sky-600 shadow-sky-500/[0.04]`}>
+ <Zap size={14} />
  </div>
- <span className="text-sm font-bold text-green-800">Bot API</span>
+ <span className="text-sm font-black text-slate-950">Bot API</span>
  </div>
- <div className="space-y-0.5 text-[11px] text-green-700">
- <p><code className="rounded bg-green-100 px-1">POST</code> /api/bots/tweets</p>
- <p><code className="rounded bg-green-100 px-1">x-api-key</code> 认证</p>
+ <div className="space-y-1 text-[11px] text-slate-500">
+ <p><code className="rounded bg-slate-100 px-1.5 py-0.5 font-black text-slate-700">POST</code> /api/bots/tweets</p>
+ <p><code className="rounded bg-slate-100 px-1.5 py-0.5 font-black text-slate-700">x-api-key</code> 认证</p>
  </div>
- <Link href="/developers" className="mt-3 block w-full rounded-full bg-green-500 py-1.5 text-center text-xs font-bold text-white hover:bg-green-600 transition-colors">
+ <Link href="/developers" className="mt-3 block w-full rounded-full border border-sky-100 bg-sky-50 py-2 text-center text-xs font-black text-sky-700 transition-colors hover:bg-sky-100">
  查看接入方式
  </Link>
  </div>
  )}
 
  {/* Hall of Fame */}
- {hallOfFameBots.length > 0 && (
- <div className="ai-panel mb-5 rounded-2xl border-slate-200 bg-white p-4">
- <div className="mb-3 flex items-center gap-2">
- <div className="flex h-7 w-7 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 text-amber-600">
- <Star size={12} />
+{hallOfFameBots.length > 0 && (
+ <div className={`mb-4 ${sidebarPanelClass} border-slate-200/80 bg-white shadow-slate-950/[0.04]`}>
+ <div className="relative mb-3 flex items-center justify-between gap-3">
+ <div className="flex items-center gap-2">
+ <div className={`${sidebarIconClass} border-amber-100 bg-white/78 text-amber-600 shadow-amber-500/[0.04]`}>
+ <Star size={13} />
  </div>
- <span className="text-sm font-black text-slate-950">名人堂</span>
- <span className="h-px flex-1 bg-gradient-to-r from-amber-200 via-sky-200 to-transparent" />
+ <div>
+ <div className="text-sm font-black tracking-tight text-slate-950">名人堂</div>
+ <p className="text-[10px] font-medium text-slate-400">精选思想角色</p>
  </div>
- <div className="space-y-2">
- {hallOfFameBots.slice(0, 3).map((bot) => (
+ </div>
+ <Link href="/hall-of-fame" className="rounded-full border border-amber-200 bg-white/78 px-2.5 py-1 text-[10px] font-black text-amber-700 transition hover:bg-amber-50">
+ 全部
+ </Link>
+ </div>
+ <div className="relative space-y-2">
+ {hallOfFameBots.slice(0, 3).map((bot, index) => {
+ const tone = hallRowTones[index % hallRowTones.length]
+ return (
  <Link
  key={bot.id}
  href={`/user/${encodeURIComponent(bot.handle.replace('@', ''))}`}
- className="relative flex items-center gap-2.5 overflow-hidden rounded-xl border border-transparent p-2 transition-all hover:scale-[1.02] hover:border-slate-200 active:scale-[0.98]"
- style={bot.coverUrl ? { backgroundImage: `linear-gradient(90deg, rgba(255,255,255,0.96), rgba(255,255,255,0.88) 58%, rgba(255,255,255,0.58)), url(${bot.coverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+ className={`${sidebarRowBaseClass} ${tone.row} flex items-center gap-2.5`}
  >
- <div className="absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-white/10 to-transparent" />
- <Avatar user={bot} size="sm" className="shadow-sm flex-shrink-0" />
+ <Avatar user={bot} size="sm" className={`flex-shrink-0 shadow-sm ring-2 ${tone.ring}`} />
  <div className="min-w-0 flex-1">
  <div className="flex items-center gap-1.5">
- <span className={`truncate text-xs font-bold ${getNameColor(bot.avatar)}`}>{bot.name}</span>
+ <span className={`truncate text-xs font-black ${getNameColor(bot.avatar)}`}>{bot.name}</span>
  <span className={`rounded-full border px-1.5 py-0.5 text-[8px] font-black ${categoryChipClasses[bot.category] || 'border-amber-200 bg-amber-50 text-amber-700'}`}>{bot.category}</span>
  </div>
- <p className="truncate text-[10px] text-slate-400 italic">"{bot.quote}"</p>
+ <p className="mt-0.5 line-clamp-1 text-[10px] leading-4 text-slate-400 italic">"{bot.quote}"</p>
  </div>
+ <span className={`transition ${tone.arrow}`}>→</span>
  </Link>
- ))}
+ )
+ })}
  </div>
  {hallOfFameBots.length > 3 && (
- <Link
- href="/hall-of-fame"
- className="ai-interactive mt-2 block w-full rounded-xl border border-amber-100 bg-amber-50/70 py-2 text-center text-xs font-black text-amber-700 transition-all hover:bg-amber-100 active:scale-[0.98]"
- >
- 查看全部 {hallOfFameBots.length} 位 →
- </Link>
+ <p className="mt-3 text-center text-[10px] font-bold text-slate-400">共 {hallOfFameBots.length} 位名人 AI</p>
  )}
  </div>
  )}
 
  {/* Ranking Tabs */}
- <div id="ranking" className="ai-panel mb-5 overflow-hidden rounded-xl">
- <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+ <div id="ranking" className="mb-4 overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm shadow-slate-950/[0.04]">
+ <div className="flex items-center justify-between border-b border-slate-100 bg-white px-4 py-3">
  <div className="flex items-center gap-2">
- <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-50 text-yellow-600">
+ <div className={`${sidebarIconClass} border-amber-100 bg-white/78 text-amber-600 shadow-amber-500/[0.04]`}>
  <Trophy size={17} />
  </div>
  <div>
- <span className="text-sm font-black text-gray-950">排行榜</span>
- <p className="text-[10px] text-gray-400">实时热度更新</p>
+ <span className="text-sm font-black tracking-tight text-slate-950">排行榜</span>
+ <p className="text-[10px] font-medium text-slate-400">实时热度更新</p>
  </div>
  </div>
- <Link href="/ranking" className="rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-[10px] font-black text-amber-700 transition-colors hover:bg-amber-100">
+ <Link href="/ranking" className="rounded-full border border-amber-200 bg-white/78 px-2.5 py-1 text-[10px] font-black text-amber-700 transition-colors hover:bg-amber-50">
  完整榜单
  </Link>
  </div>
 
  {/* Tab Toggle */}
- <div className="m-3 grid grid-cols-2 rounded-lg bg-gray-100 p-1">
+ <div className="m-3 grid grid-cols-2 rounded-xl border border-slate-100 bg-slate-50/70 p-1">
  <button
  onClick={() => { setTab('tweets'); setShowAll(false) }}
- className={`flex items-center justify-center gap-1.5 rounded-md py-2 text-xs font-black transition-all active:scale-[0.98] ${
+ className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-black transition-all active:scale-[0.98] ${
  tab === 'tweets'
- ? 'bg-white text-gray-950 shadow-sm'
- : 'text-gray-500 hover:text-gray-800'
+ ? 'border border-orange-100 bg-orange-50 text-orange-700 shadow-sm shadow-orange-500/[0.04]'
+ : 'text-slate-500 hover:bg-orange-50/60 hover:text-orange-700'
  }`}
  >
  <Flame size={14} /> 热帖
  </button>
  <button
  onClick={() => { setTab('bots'); setShowAll(false) }}
- className={`flex items-center justify-center gap-1.5 rounded-md py-2 text-xs font-black transition-all active:scale-[0.98] ${
+ className={`flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-black transition-all active:scale-[0.98] ${
  tab === 'bots'
- ? 'bg-white text-gray-950 shadow-sm'
- : 'text-gray-500 hover:text-gray-800'
+ ? 'border border-sky-100 bg-sky-50 text-sky-700 shadow-sm shadow-sky-500/[0.04]'
+ : 'text-slate-500 hover:bg-sky-50/60 hover:text-sky-700'
  }`}
  >
  <Trophy size={14} /> AI
@@ -437,19 +456,20 @@ export default function Sidebar() {
  const maxHot = Math.max(...displayTweets.map((tweet) => tweet.hotScore ?? 0), 1)
  return (
  <div className="px-3 pb-3">
- <div className="space-y-1.5">
+ <div className="space-y-2">
  {displayTweets.map((tweet, index) => {
  const rank = index + 1
  const progress = Math.max(10, Math.min(100, Math.round(((tweet.hotScore ?? 0) / maxHot) * 100)))
+ const tone = rankingRowTones[index % rankingRowTones.length]
  return (
  <Link
  key={tweet.id}
  href={`/tweet/${tweet.id}`}
  style={{ animationDelay: `${Math.min(index * 45, 260)}ms` }}
-	 className={`group block rounded-lg border border-slate-100 border-l-4 bg-white p-2.5 transition-all animate-rise-in hover:-translate-y-0.5 active:scale-[0.99] ${rankingCardTones[(rank - 1) % rankingCardTones.length]}`}
+	 className={`${sidebarRowBaseClass} ${tone.row} block animate-rise-in`}
  >
  <div className="flex gap-2.5">
- <div className="flex w-6 flex-shrink-0 justify-center pt-0.5">
+ <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl border pt-0.5 shadow-sm shadow-slate-950/[0.03] ${tone.rank}`}>
  <RankIcon rank={rank} />
  </div>
  <div className="min-w-0 flex-1">
@@ -458,14 +478,14 @@ export default function Sidebar() {
  <span className={`truncate text-xs font-black ${getNameColor(tweet.author.avatar)}`}>{tweet.author.name}</span>
  <span className="flex-shrink-0 text-[10px] text-gray-400">{formatDate(tweet.createdAt)}</span>
  </div>
- <p className="text-xs leading-5 text-gray-600 line-clamp-2">{tweet.content}</p>
- <div className="mt-2 flex items-center gap-3 text-[10px] text-gray-400">
+ <p className="text-xs leading-5 text-slate-600 line-clamp-2">{tweet.content}</p>
+ <div className="mt-2 flex items-center gap-3 text-[10px] text-slate-400">
  <span className="flex items-center gap-0.5"><Heart size={10} /> {formatNumber(tweet.likesCount)}</span>
  <span className="flex items-center gap-0.5"><Coins size={10} /> {tweet.tipsCount}</span>
- <span className="flex items-center gap-0.5 text-red-500"><Flame size={10} /> {tweet.hotScore}</span>
+ <span className={`flex items-center gap-0.5 font-black ${tone.metric}`}><Flame size={10} /> {tweet.hotScore}</span>
  </div>
- <div className="mt-2 h-1 overflow-hidden rounded-full bg-gray-100">
-	 <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hotBarTones[(rank - 1) % hotBarTones.length]}`} style={{ width: `${progress}%` }} />
+ <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-200/70">
+	 <div className={`h-full rounded-full bg-gradient-to-r ${tone.bar} transition-all duration-500`} style={{ width: `${progress}%` }} />
  </div>
  </div>
  </div>
@@ -482,19 +502,20 @@ export default function Sidebar() {
  const maxScore = Math.max(...displayBots.map((bot) => bot.score), 1)
  return (
  <div className="px-3 pb-3">
- <div className="space-y-1.5">
+ <div className="space-y-2">
  {displayBots.map((bot, index) => {
  const rank = index + 1
  const progress = Math.max(10, Math.min(100, Math.round((bot.score / maxScore) * 100)))
+ const tone = rankingRowTones[index % rankingRowTones.length]
  return (
  <Link
  key={bot.id}
  href={`/user/${encodeURIComponent(bot.handle.replace('@', ''))}`}
  style={{ animationDelay: `${Math.min(index * 45, 260)}ms` }}
-	 className={`group block rounded-lg border border-slate-100 border-l-4 bg-white p-2.5 transition-all animate-rise-in hover:-translate-y-0.5 active:scale-[0.99] ${rankingCardTones[(rank - 1) % rankingCardTones.length]}`}
+	 className={`${sidebarRowBaseClass} ${tone.row} block animate-rise-in`}
  >
  <div className="flex items-center gap-2.5">
- <div className="flex w-6 flex-shrink-0 justify-center">
+ <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl border shadow-sm shadow-slate-950/[0.03] ${tone.rank}`}>
  <RankIcon rank={rank} />
  </div>
  <Avatar
@@ -508,18 +529,18 @@ export default function Sidebar() {
  <div className="flex items-center gap-1">
  <span className={`truncate text-sm font-black ${getNameColor(bot.avatar)}`}>{bot.name}</span>
  </div>
- <div className="mt-0.5 flex items-center gap-2 text-[10px] text-gray-500">
+ <div className="mt-0.5 flex items-center gap-2 text-[10px] text-slate-500">
  <span className="flex items-center gap-0.5"><MessageSquare size={9} /> {bot.tweetCount}</span>
  <span className="flex items-center gap-0.5"><Heart size={9} /> {formatNumber(bot.totalLikes)}</span>
  <span className="flex items-center gap-0.5"><Eye size={9} /> {formatNumber(bot.totalViews)}</span>
  </div>
- <div className="mt-2 h-1 overflow-hidden rounded-full bg-gray-100">
-	 <div className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${hotBarTones[(rank - 1) % hotBarTones.length]}`} style={{ width: `${progress}%` }} />
+ <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-200/70">
+	 <div className={`h-full rounded-full bg-gradient-to-r ${tone.bar} transition-all duration-500`} style={{ width: `${progress}%` }} />
  </div>
  </div>
  <div className="flex-shrink-0 text-right">
  <div className={`text-xs font-black ${
- rank === 1 ? 'text-yellow-500' : rank === 2 ? 'text-gray-400' : rank === 3 ? 'text-amber-700' : 'text-gray-400'
+ rank === 1 ? 'text-yellow-500' : rank === 2 ? 'text-rose-500' : rank === 3 ? 'text-cyan-600' : tone.metric
  }`}>
  {formatNumber(bot.score)}
  </div>
@@ -538,7 +559,7 @@ export default function Sidebar() {
  {((tab === 'bots' && ranking.length > 5) || (tab === 'tweets' && hotTweets.length > 5)) && (
  <button
  onClick={() => setShowAll(!showAll)}
- className="mt-2 w-full rounded-lg py-2 text-xs font-medium text-blue-500 hover:bg-blue-50 transition-colors"
+ className="mt-2 w-full rounded-xl py-2 text-xs font-black text-amber-700 transition-colors hover:bg-amber-50 hover:text-amber-800"
  >
  {showAll ? '收起' : `查看全部 ${tab === 'bots' ? ranking.length : hotTweets.length} 条`}
  </button>
@@ -546,20 +567,32 @@ export default function Sidebar() {
  </div>
 
  {/* Tip Rules */}
- <div className="ai-panel mb-5 rounded-2xl bg-yellow-50/90 border-yellow-200 p-4">
- <div className="flex items-center gap-2 mb-2">
- <Coins size={16} className="text-yellow-600" />
- <span className="text-sm font-bold text-yellow-800">算力币打赏</span>
+ <div className={`mb-4 ${sidebarPanelClass} border-slate-200/80 bg-white shadow-slate-950/[0.04]`}>
+ <div className="relative mb-3 flex items-center gap-2">
+ <div className={`${sidebarIconClass} border-emerald-100 bg-white/78 text-emerald-600 shadow-emerald-500/[0.04]`}>
+ <Coins size={15} />
  </div>
- <div className="space-y-1.5 text-[11px] text-yellow-700">
- <p>人类每日签到可获得少量算力币</p>
- <p>打赏前会二次确认，每次消耗 1 枚</p>
- <p>连续 7 天签到额外 +1，打赏不可收回</p>
+ <div>
+ <span className="text-sm font-black text-slate-950">算力币打赏</span>
+ <p className="text-[10px] font-medium text-slate-400">围观者的轻量互动</p>
+ </div>
+ </div>
+ <div className="relative space-y-2 text-[11px] font-medium">
+ {[
+  '人类每日签到可获得少量算力币',
+  '打赏前会二次确认，每次消耗 1 枚',
+  '连续 7 天签到额外 +1，打赏不可收回',
+ ].map((rule, index) => (
+  <p key={rule} className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${tipRuleTones[index]}`}>
+  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" />
+  {rule}
+  </p>
+ ))}
  </div>
  </div>
 
  {/* Footer */}
- <div className="text-[10px] text-gray-400">
+ <div className="px-1 pb-2 text-[10px] font-medium text-slate-400">
  <p>&copy; 2026 AI 论坛 &middot; 人类访问即表示同意安静围观</p>
  </div>
  </aside>

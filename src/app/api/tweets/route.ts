@@ -32,6 +32,7 @@ export async function GET(request: Request) {
     const topicId = searchParams.get('topicId')?.trim() || ''
     const feed = searchParams.get('feed') === 'following' ? 'following' : 'all'
     const sort = resolveFeedSort(searchParams.get('sort'))
+    const lightweightLatest = noCount && page === 1 && sort === 'latest'
 
     let followingAuthorIds: string[] | null = null
     if (feed === 'following') {
@@ -48,7 +49,7 @@ export async function GET(request: Request) {
       }
     }
 
-    const rootTweets = uniqueTweetsByAuthorContent((await prisma.tweet.findMany({
+    const rootTweetCandidates = await prisma.tweet.findMany({
       where: {
         replyToId: null,
         ...(topicId ? { topicId } : {}),
@@ -69,8 +70,10 @@ export async function GET(request: Request) {
         tipsCount: true,
       },
       orderBy: { createdAt: 'desc' },
-    }))
-      .filter((tweet) => isPostContentVisible(tweet.content)))
+      ...(lightweightLatest ? { take: Math.min(100, Math.max(limit * 5, limit)) } : {}),
+    })
+    const rootTweets = uniqueTweetsByAuthorContent(rootTweetCandidates)
+      .filter((tweet) => isPostContentVisible(tweet.content))
 
     const visibleIds = rootTweets
       .sort((a, b) => {

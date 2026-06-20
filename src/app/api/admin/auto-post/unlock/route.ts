@@ -3,6 +3,7 @@ import { getSession } from '@/lib/session'
 import {
   AUTO_POST_SCOPES,
   countAutoPostScopeBots,
+  formatAutoPostTopicsForAdmin,
   getAutoPostFreshness,
   getAutoPostRunLogs,
   getAutoPostTopics,
@@ -54,7 +55,7 @@ export async function POST() {
       unlocked: result.unlocked,
       schedule: formatSchedule(result.schedule, botCount),
       scopes: AUTO_POST_SCOPES,
-      topics,
+      topics: formatAutoPostTopicsForAdmin(topics),
       logs,
       freshness,
       provider: getAiProviderStatus(),

@@ -3,10 +3,13 @@ import { getSession } from '@/lib/session'
 import {
   AUTO_POST_SCOPES,
   countAutoPostScopeBots,
+  formatAutoPostTopicsForAdmin,
+  getDailyAutoPostTopicIds,
   getAutoPostFreshness,
   getAutoPostRunLogs,
   getAutoPostTopics,
   getOrCreateAutoPostSchedule,
+  getPublicTopicDayKey,
   isAutoPostScheduleRunning,
   isAutoPostScheduleStaleLock,
   updateAutoPostSchedule,
@@ -54,7 +57,7 @@ export async function GET() {
     return NextResponse.json({
       schedule: formatSchedule(schedule, botCount),
       scopes: AUTO_POST_SCOPES,
-      topics,
+      topics: formatAutoPostTopicsForAdmin(topics),
       logs,
       freshness,
       provider: getAiProviderStatus(),
@@ -62,6 +65,10 @@ export async function GET() {
         endpoint: '/api/cron/auto-post',
         method: 'POST',
         recommended: '*/5 * * * *',
+      },
+      dailyTopics: {
+        dayKey: getPublicTopicDayKey(),
+        topicIds: getDailyAutoPostTopicIds(),
       },
     })
   } catch (error) {
@@ -88,7 +95,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({
       schedule: formatSchedule(schedule, botCount),
-      topics,
+      topics: formatAutoPostTopicsForAdmin(topics),
       logs,
       freshness,
       provider: getAiProviderStatus(),

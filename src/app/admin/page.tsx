@@ -155,6 +155,10 @@ interface AutoPostTopic {
   lastUsedAt: string | null
   createdAt: string
   updatedAt: string
+  source?: 'custom' | 'daily-public' | 'daily-archived'
+  isDaily?: boolean
+  isTodayPublic?: boolean
+  dayKey?: string | null
 }
 
 interface AutoPostRunLog {
@@ -1219,6 +1223,8 @@ export default function AdminPage() {
   )
   const autoPostIsBusy = Boolean(autoPost?.isRunning || autoPostRunning)
   const autoPostLockLabel = autoPost?.lockUntil ? new Date(autoPost.lockUntil).toLocaleTimeString() : ''
+  const todayPublicTopicCount = autoPostTopics.filter((topic) => topic.isTodayPublic).length
+  const enabledCustomTopicCount = autoPostTopics.filter((topic) => topic.enabled && !topic.isDaily).length
 	  const moderationCategoryLabel = (category: string) => (
 	    category === 'illegal' ? '违法交易' :
 	    category === 'harm' ? '暴力自伤' :
@@ -1520,7 +1526,9 @@ export default function AdminPage() {
 	                          <span className="mb-1 block text-xs font-black text-slate-500">立即按话题运行</span>
 	                          <select value={selectedAutoPostTopicId} onChange={(e) => setSelectedAutoPostTopicId(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 outline-none transition focus:border-cyan-300">
 	                            <option value="">自动选择话题</option>
-	                            {autoPostTopics.filter((topic) => topic.enabled).map((topic) => <option key={topic.id} value={topic.id}>{topic.title}</option>)}
+	                            {autoPostTopics.filter((topic) => topic.enabled).map((topic) => (
+	                              <option key={topic.id} value={topic.id}>{topic.isTodayPublic ? '今日 · ' : ''}{topic.title}</option>
+	                            ))}
 	                          </select>
 	                        </label>
 	                        <button onClick={runAutoPostNow} disabled={autoPostIsBusy || autoPostLoading} className="ai-interactive inline-flex items-center justify-center gap-1.5 rounded-xl bg-cyan-500 px-4 py-2 text-sm font-black text-white shadow-lg shadow-cyan-500/20 hover:bg-cyan-600 disabled:opacity-50">
@@ -1561,9 +1569,9 @@ export default function AdminPage() {
 	                  <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
 	                    <div>
 	                      <h3 className="text-sm font-black text-slate-950">话题池</h3>
-	                      <p className="text-[11px] font-medium text-slate-400">自动发帖会按权重选择启用话题</p>
+	                      <p className="text-[11px] font-medium text-slate-400">公开区每天轮换 3 个新话题；长期话题保留给手动运行和运营备选</p>
 	                    </div>
-	                    <div className="text-xs font-black text-slate-400">{autoPostTopics.filter((topic) => topic.enabled).length} 个启用</div>
+	                    <div className="text-xs font-black text-slate-400">{todayPublicTopicCount} 个今日公开 · {enabledCustomTopicCount} 个长期启用</div>
 	                  </div>
 	                  <div className="grid gap-2 lg:grid-cols-[1fr_180px_96px_auto]">
 	                    <input value={topicFormTitle} onChange={(e) => setTopicFormTitle(e.target.value)} placeholder="新话题标题" className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold outline-none transition focus:border-cyan-300" />
@@ -1580,6 +1588,12 @@ export default function AdminPage() {
 	                            <div className="flex flex-wrap items-center gap-1.5">
 	                              <span className="truncate text-sm font-black text-slate-950">{topic.title}</span>
 	                              <span className="rounded-full border border-white bg-white px-2 py-0.5 text-[10px] font-black text-slate-500">{topic.category}</span>
+	                              {topic.isTodayPublic && (
+	                                <span className="rounded-full border border-cyan-100 bg-white px-2 py-0.5 text-[10px] font-black text-cyan-700">今日公开</span>
+	                              )}
+	                              {!topic.isDaily && (
+	                                <span className="rounded-full border border-emerald-100 bg-white px-2 py-0.5 text-[10px] font-black text-emerald-700">长期备选</span>
+	                              )}
 	                              <span className="text-[10px] font-black text-cyan-700">权重 {topic.weight}</span>
 	                            </div>
 	                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{topic.description || '暂无说明'}</p>
@@ -1591,19 +1605,20 @@ export default function AdminPage() {
 	                                  min={1}
 	                                  max={99}
 	                                  defaultValue={topic.weight}
+	                                  disabled={topic.isTodayPublic}
 	                                  onBlur={(e) => {
 	                                    const weight = Number(e.currentTarget.value)
 	                                    if (Number.isFinite(weight) && weight !== topic.weight) updateAutoPostTopic(topic, { weight })
 	                                  }}
-	                                  className="h-7 w-16 rounded-lg border border-slate-200 bg-white px-2 text-xs font-black text-slate-700 outline-none focus:border-cyan-300"
+	                                  className="h-7 w-16 rounded-lg border border-slate-200 bg-white px-2 text-xs font-black text-slate-700 outline-none focus:border-cyan-300 disabled:bg-slate-100 disabled:text-slate-400"
 	                                />
 	                              </label>
-	                              <span>{topic.lastUsedAt ? `上次 ${new Date(topic.lastUsedAt).toLocaleDateString()}` : '还未使用'}</span>
+	                              <span>{topic.isTodayPublic && topic.dayKey ? topic.dayKey : topic.lastUsedAt ? `上次 ${new Date(topic.lastUsedAt).toLocaleDateString()}` : '还未使用'}</span>
 	                            </div>
 	                          </div>
 	                          <div className="flex shrink-0 items-center gap-1">
-	                            <button onClick={() => updateAutoPostTopic(topic, { enabled: !topic.enabled })} disabled={topicSubmitting} className={`rounded-lg px-2 py-1 text-[10px] font-black ${topic.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>{topic.enabled ? '启用' : '停用'}</button>
-	                            <button onClick={() => deleteAutoPostTopic(topic)} disabled={topicSubmitting} className="rounded-lg bg-red-50 px-2 py-1 text-[10px] font-black text-red-500">删除</button>
+	                            <button onClick={() => updateAutoPostTopic(topic, { enabled: !topic.enabled })} disabled={topicSubmitting || topic.isTodayPublic} className={`rounded-lg px-2 py-1 text-[10px] font-black disabled:cursor-not-allowed disabled:opacity-60 ${topic.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}>{topic.enabled ? '启用' : '停用'}</button>
+	                            <button onClick={() => deleteAutoPostTopic(topic)} disabled={topicSubmitting || topic.isTodayPublic} className="rounded-lg bg-red-50 px-2 py-1 text-[10px] font-black text-red-500 disabled:cursor-not-allowed disabled:opacity-50">删除</button>
 	                          </div>
 	                        </div>
 	                      </div>

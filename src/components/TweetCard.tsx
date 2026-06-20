@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useMemo, memo, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/Toast'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { getNameColor, formatNumber, formatDate, parseTweetContent } from '@/lib/utils'
 import Avatar from '@/components/Avatar'
 import { useTweetInteractions } from '@/hooks/useTweetInteractions'
@@ -21,6 +22,7 @@ interface TweetCardProps {
 export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps) {
   const { user } = useAuth()
   const { toast } = useToast()
+  const confirm = useConfirm()
   const router = useRouter()
   const [deleting, setDeleting] = useState(false)
   const [threadExpanded, setThreadExpanded] = useState(false)
@@ -29,6 +31,7 @@ export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps
   const {
     liked, likeCount, shared, shareCount, tipped, tipCount,
     likeAnimating, shareAnimating, tipAnimating,
+    likeLoading, shareLoading, tipLoading, tipConfirming,
     isHuman, isBot,
     handleLike, handleShare, handleTip,
   } = useTweetInteractions({
@@ -50,7 +53,13 @@ export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps
 
   const handleDelete = async () => {
     if (!isAdmin || deleting) return
-    if (!confirm('确定删除这条推文？')) return
+    const confirmed = await confirm({
+      title: '删除推文',
+      message: '删除后无法恢复，确定要删除这条推文吗？',
+      confirmText: '删除',
+      tone: 'danger',
+    })
+    if (!confirmed) return
     setDeleting(true)
     try {
       const res = await fetch(`/api/tweets/${tweet.id}`, { method: 'DELETE' })
@@ -111,7 +120,7 @@ export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps
       aria-label={`查看 ${tweet.author.name} 的帖子详情`}
       onClick={handleCardClick}
       onKeyDown={handleCardKeyDown}
-      className="group relative z-[1] isolate cursor-pointer border-b border-blue-50 bg-white px-4 py-3.5 shadow-sm shadow-blue-950/[0.03] outline-none transition-all hover:bg-cyan-50/60 hover:shadow-md focus-visible:ring-2 focus-visible:ring-blue-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+      className="ai-thread-card group relative z-[1] isolate cursor-pointer border-b border-blue-50 bg-white px-4 py-3.5 shadow-sm shadow-blue-950/[0.03] outline-none transition-all hover:bg-cyan-50/60 hover:shadow-md focus-visible:ring-2 focus-visible:ring-blue-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
     >
       <div className="flex gap-3">
         {/* Avatar column */}
@@ -200,6 +209,7 @@ export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps
             )}
           </p>
 
+
           {displayedReplies.length > 0 && (
             <div
               data-no-card-nav
@@ -251,31 +261,34 @@ export default memo(function TweetCard({ tweet, rank, onDelete }: TweetCardProps
               <span className="text-xs">{formatNumber(tweet.repliesCount)}</span>
             </Link>
 
-            <button onClick={handleShare}
+            <button type="button" onClick={handleShare} disabled={shareLoading}
               aria-label={isHuman ? (shared ? `取消转发，当前 ${formatNumber(shareCount)} 次` : `转发，当前 ${formatNumber(shareCount)} 次`) : isBot ? 'Bot 账号不能转发，点击查看原因' : '登录人类账号后可转发'}
-              className={`group/btn flex min-w-10 cursor-pointer items-center justify-center gap-1 rounded-full px-2 py-1.5 transition-all active:scale-90 ${shared ? 'text-green-500 hover:bg-green-50' : isHuman ? 'hover:bg-green-50 hover:text-green-500' : 'hover:bg-gray-100 hover:text-gray-500'}`}
+              aria-busy={shareLoading}
+              className={`group/btn flex min-w-10 cursor-pointer items-center justify-center gap-1 rounded-full px-2 py-1.5 transition-all active:scale-90 disabled:cursor-wait disabled:opacity-60 ${shared ? 'text-green-500 hover:bg-green-50' : isHuman ? 'hover:bg-green-50 hover:text-green-500' : 'hover:bg-gray-100 hover:text-gray-500'}`}
               title={isHuman ? (shared ? '取消转发' : '转发') : isBot ? 'Bot 无法转发' : '登录后可转发'}>
               <Repeat2 size={16} className={`${shareAnimating ? 'animate-retweet' : ''} ${isHuman ? 'group-hover/btn:scale-110 transition-transform' : ''} ${shared ? 'fill-current' : ''}`} />
               <span className="text-xs">{formatNumber(shareCount)}</span>
             </button>
 
-            <button onClick={handleLike}
+            <button type="button" onClick={handleLike} disabled={likeLoading}
               aria-label={isHuman ? (liked ? `取消点赞，当前 ${formatNumber(likeCount)} 次` : `点赞，当前 ${formatNumber(likeCount)} 次`) : isBot ? 'Bot 账号不能点赞，点击查看原因' : '登录人类账号后可点赞'}
-              className={`group/btn flex min-w-10 cursor-pointer items-center justify-center gap-1 rounded-full px-2 py-1.5 transition-all active:scale-90 ${liked ? 'text-red-500 hover:bg-red-50' : isHuman ? 'hover:bg-red-50 hover:text-red-500' : 'hover:bg-gray-100 hover:text-gray-500'}`}
+              aria-busy={likeLoading}
+              className={`group/btn flex min-w-10 cursor-pointer items-center justify-center gap-1 rounded-full px-2 py-1.5 transition-all active:scale-90 disabled:cursor-wait disabled:opacity-60 ${liked ? 'text-red-500 hover:bg-red-50' : isHuman ? 'hover:bg-red-50 hover:text-red-500' : 'hover:bg-gray-100 hover:text-gray-500'}`}
               title={isHuman ? (liked ? '取消点赞' : '点赞') : isBot ? 'Bot 无法点赞' : '登录后可点赞'}>
               <Heart size={16} className={`${likeAnimating ? 'animate-like-pop' : ''} ${isHuman ? 'group-hover/btn:scale-110 transition-transform' : ''} ${liked ? 'fill-current' : ''}`} />
               <span className="text-xs">{formatNumber(likeCount)}</span>
             </button>
 
-            <button onClick={handleTip}
+            <button type="button" onClick={handleTip} disabled={tipLoading || tipConfirming}
               aria-label={isHuman ? (tipped ? `已打赏，当前 ${formatNumber(tipCount)} 枚，打赏不可收回` : `投 1 枚算力币，当前 ${formatNumber(tipCount)} 枚`) : isBot ? 'Bot 账号不能打赏，点击查看原因' : '登录人类账号后可打赏'}
-              className={`group/btn flex min-w-10 cursor-pointer items-center justify-center gap-1 rounded-full px-2 py-1.5 transition-all active:scale-90 ${tipped ? 'text-yellow-500 hover:bg-yellow-50' : isHuman ? 'hover:bg-yellow-50 hover:text-yellow-500' : 'hover:bg-gray-100 hover:text-gray-500'}`}
+              aria-busy={tipLoading || tipConfirming}
+              className={`group/btn flex min-w-10 cursor-pointer items-center justify-center gap-1 rounded-full px-2 py-1.5 transition-all active:scale-90 disabled:cursor-wait disabled:opacity-60 ${tipped ? 'text-yellow-500 hover:bg-yellow-50' : isHuman ? 'hover:bg-yellow-50 hover:text-yellow-500' : 'hover:bg-gray-100 hover:text-gray-500'}`}
               title={isHuman ? (tipped ? '已打赏，不可收回' : '消耗 1 枚算力币打赏') : isBot ? 'Bot 无法打赏' : '登录后可打赏'}>
               <Coins size={16} className={`${tipAnimating ? 'animate-coin-drop' : ''} ${isHuman ? 'group-hover/btn:scale-110 transition-transform' : ''} ${tipped ? 'fill-current' : ''}`} />
               <span className="text-xs">{tipCount > 0 ? formatNumber(tipCount) : ''}</span>
             </button>
 
-            <button onClick={() => {
+            <button type="button" onClick={() => {
               try {
                 navigator.clipboard.writeText(`${window.location.origin}/tweet/${tweet.id}`)
                 toast('链接已复制', 'success', <Share2 size={14} className="text-blue-400" />)

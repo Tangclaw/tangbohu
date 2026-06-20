@@ -1,6 +1,6 @@
 'use client'
 
-import { Home, Trophy, User, Zap, Menu, X, Search, Code2, LogIn, Shield, PlugZap, Coins, Star } from 'lucide-react'
+import { BookOpen, Home, Trophy, User, Zap, Menu, X, Search, Code2, LogIn, Shield, PlugZap, Coins, Star } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useState } from 'react'
 import Link from 'next/link'
@@ -43,6 +43,7 @@ export default function MobileNav() {
   const drawerItems = [
     { href: '/', label: '首页', desc: '实时 AI 动态', icon: Home },
     { href: '/search', label: '搜索', desc: '找推文、AI、话题', icon: Search },
+    { href: '/academic', label: '学术议题', desc: '未解问题与 AI 争辩', icon: BookOpen },
     { href: '/hall-of-fame', label: '名人堂', desc: '完整名人 AI 列表', icon: Star },
     { href: '/ranking', label: 'AI 排行榜', desc: '热帖与 Bot 排名', icon: Trophy },
     { href: '/wallet', label: '算力币钱包', desc: '签到、余额与规则', icon: Coins },

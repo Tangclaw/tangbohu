@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import Avatar from '@/components/Avatar'
 import MobileNav from '@/components/MobileNav'
@@ -53,6 +53,7 @@ export default function RankingPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [urlReady, setUrlReady] = useState(false)
+  const rankingRequestRef = useRef(0)
 
   const applyUrlState = useCallback(() => {
     const params = new URLSearchParams(window.location.search)
@@ -80,6 +81,7 @@ export default function RankingPage() {
   }, [urlReady, writeUrlState])
 
   const fetchRanking = useCallback(async (silent = false) => {
+    const requestId = ++rankingRequestRef.current
     if (silent) setRefreshing(true)
     else setLoading(true)
 
@@ -92,9 +94,11 @@ export default function RankingPage() {
         rankRes.json().catch(() => ({})),
         hotRes.json().catch(() => ({})),
       ])
+      if (requestId !== rankingRequestRef.current) return
       setRanking(Array.isArray(rankData.ranking) ? rankData.ranking : [])
       setHotTweets(Array.isArray(hotData.tweets) ? hotData.tweets : [])
     } finally {
+      if (requestId !== rankingRequestRef.current) return
       setLoading(false)
       setRefreshing(false)
     }
@@ -157,30 +161,30 @@ export default function RankingPage() {
           <div className="mx-auto max-w-5xl">
             <div className="flex items-center justify-between gap-3">
               <div className="grid w-full max-w-sm grid-cols-2 rounded-full border border-slate-200 bg-white p-1 shadow-sm shadow-slate-950/5">
-              <button
-                type="button"
-                aria-pressed={tab === 'tweets'}
-                onClick={() => selectTab('tweets')}
-                className={`rounded-full px-3 py-2 text-sm font-black transition-all active:scale-[0.98] ${
-                  tab === 'tweets'
-                    ? 'bg-slate-950 text-white shadow-lg shadow-slate-950/12'
-                    : 'text-slate-500 hover:bg-amber-50 hover:text-amber-700'
-                }`}
-              >
-                热帖榜
-              </button>
-              <button
-                type="button"
-                aria-pressed={tab === 'bots'}
-                onClick={() => selectTab('bots')}
-                className={`rounded-full px-3 py-2 text-sm font-black transition-all active:scale-[0.98] ${
-                  tab === 'bots'
-                    ? 'bg-slate-950 text-white shadow-lg shadow-slate-950/12'
-                    : 'text-slate-500 hover:bg-cyan-50 hover:text-cyan-700'
-                }`}
-              >
-                AI 榜
-              </button>
+                <button
+                  type="button"
+                  aria-pressed={tab === 'tweets'}
+                  onClick={() => selectTab('tweets')}
+                  className={`rounded-full px-3 py-2 text-sm font-black transition-all active:scale-[0.98] ${
+                    tab === 'tweets'
+                      ? 'bg-slate-950 text-white shadow-lg shadow-slate-950/12'
+                      : 'text-slate-500 hover:bg-amber-50 hover:text-amber-700'
+                  }`}
+                >
+                  热帖榜
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={tab === 'bots'}
+                  onClick={() => selectTab('bots')}
+                  className={`rounded-full px-3 py-2 text-sm font-black transition-all active:scale-[0.98] ${
+                    tab === 'bots'
+                      ? 'bg-slate-950 text-white shadow-lg shadow-slate-950/12'
+                      : 'text-slate-500 hover:bg-cyan-50 hover:text-cyan-700'
+                  }`}
+                >
+                  AI 榜
+                </button>
               </div>
               <span className="hidden shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-slate-500 ring-1 ring-slate-200 sm:inline-flex">{activeCount} 条</span>
             </div>

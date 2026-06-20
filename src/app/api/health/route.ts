@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getAiProviderStatus } from '@/lib/ai'
 import { prisma } from '@/lib/db'
+import { getDailyAutoPostTopicIds, getPublicTopicDayKey } from '@/lib/auto-post'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +13,7 @@ export async function GET() {
   const startedAt = Date.now()
 
   try {
+    const dailyTopicIds = getDailyAutoPostTopicIds()
     const [
       adminCount,
       officialBots,
@@ -19,6 +21,8 @@ export async function GET() {
       totalUsers,
       totalTweets,
       topics,
+      todayTopicRoots,
+      todayTopicAttempt,
       schedule,
     ] = await Promise.all([
       prisma.user.count({ where: { role: 'admin' } }),
@@ -27,6 +31,15 @@ export async function GET() {
       prisma.user.count(),
       prisma.tweet.count(),
       prisma.autoPostTopic.count({ where: { enabled: true } }),
+      prisma.tweet.count({ where: { topicId: { in: dailyTopicIds }, replyToId: null } }),
+      prisma.autoPostRunLog.findFirst({
+        where: {
+          topicId: { in: dailyTopicIds },
+          createdAt: { gte: new Date(Date.now() - 36 * 60 * 60 * 1000) },
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { startedAt: true },
+      }),
       prisma.autoPostSchedule.findFirst({
         orderBy: { createdAt: 'asc' },
         select: {
@@ -45,6 +58,7 @@ export async function GET() {
     const contentOk = adminCount > 0 && officialBots > 0 && officialTweets > 0
     const aiProvider = getAiProviderStatus()
     const ok = contentOk
+    const todayTopicAttempted = todayTopicAttempt ? getPublicTopicDayKey(todayTopicAttempt.startedAt) === getPublicTopicDayKey() : false
 
     return NextResponse.json({
       ok,
@@ -83,6 +97,13 @@ export async function GET() {
           nextRunAt: schedule?.nextRunAt?.toISOString() ?? null,
           lastRunAt: schedule?.lastRunAt?.toISOString() ?? null,
           lastRunMessage: schedule?.lastRunMessage ?? '',
+          dailyTopics: {
+            dayKey: getPublicTopicDayKey(),
+            publicCount: dailyTopicIds.length,
+            rootsCount: todayTopicRoots,
+            attemptedToday: todayTopicAttempted,
+            needsKickoff: Boolean(schedule?.enabled) && todayTopicRoots === 0 && !todayTopicAttempted,
+          },
         },
       },
     }, {

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import Navbar from '@/components/Navbar'
 import Sidebar from '@/components/Sidebar'
 import MobileNav from '@/components/MobileNav'
+import SkeletonTweet from '@/components/SkeletonTweet'
 import { Tweet } from '@/types'
 import { getNameColor, formatNumber, parseTweetContent } from '@/lib/utils'
 import { ArrowLeft, Heart, Repeat2, Coins, Share2, Eye, MessageCircle, Bot, Star, Clock3, Sparkles } from 'lucide-react'
@@ -175,8 +176,36 @@ export default function TweetDetailPage() {
         </header>
 
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-200 border-t-blue-500" />
+          <div role="status" aria-label="正在加载推文详情">
+            {/* Detail card skeleton — mirrors the real layout for a seamless swap */}
+            <div className="m-3 overflow-hidden rounded-3xl ai-panel sm:m-4">
+              <div className="h-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-amber-300" />
+              <div className="p-4 sm:p-5">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="h-12 w-12 shrink-0 animate-shimmer rounded-full bg-gray-100" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-32 animate-shimmer rounded-md bg-gray-100" />
+                    <div className="h-3 w-20 animate-shimmer rounded-md bg-gray-100" />
+                  </div>
+                </div>
+                <div className="space-y-2.5">
+                  <div className="h-5 w-full animate-shimmer rounded-md bg-gray-100" />
+                  <div className="h-5 w-11/12 animate-shimmer rounded-md bg-gray-100" />
+                  <div className="h-5 w-2/3 animate-shimmer rounded-md bg-gray-100" />
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="h-9 w-20 animate-shimmer rounded-full bg-gray-100" />
+                  ))}
+                </div>
+              </div>
+            </div>
+            {/* Replies skeleton */}
+            <div className="m-3 mb-8 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/90 shadow-sm shadow-slate-950/5 backdrop-blur sm:m-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <SkeletonTweet key={i} />
+              ))}
+            </div>
           </div>
         ) : tweet ? (
           <>
@@ -238,6 +267,7 @@ export default function TweetDetailPage() {
                 )}
               </p>
 
+
               {/* Timestamp */}
               <p className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-500">
                 <Clock3 size={13} />
@@ -262,9 +292,12 @@ export default function TweetDetailPage() {
 
                 {/* Share */}
                 <button
+                  type="button"
                   onClick={interactions.handleShare}
+                  disabled={interactions.shareLoading}
                   aria-label={interactions.isHuman ? (interactions.shared ? `取消转发，当前 ${formatNumber(interactions.shareCount)} 次` : `转发，当前 ${formatNumber(interactions.shareCount)} 次`) : interactions.isBot ? 'Bot 账号不能转发，点击查看原因' : '登录人类账号后可转发'}
-                  className={`ai-interactive group/btn inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-black ${
+                  aria-busy={interactions.shareLoading}
+                  className={`ai-interactive group/btn inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-black disabled:cursor-wait disabled:opacity-60 ${
                     interactions.shared ? 'border-emerald-100 bg-emerald-50 text-emerald-600' : interactions.isHuman ? 'border-slate-100 bg-white hover:border-emerald-100 hover:bg-emerald-50 hover:text-emerald-600' : 'border-slate-100 bg-white text-slate-400 hover:bg-gray-100 hover:text-gray-500'
                   }`}
                   title={interactions.isHuman ? (interactions.shared ? '取消转发' : '转发') : interactions.isBot ? 'Bot 账号无法转发' : '登录人类账号后可转发'}
@@ -276,9 +309,12 @@ export default function TweetDetailPage() {
 
                 {/* Like */}
                 <button
+                  type="button"
                   onClick={interactions.handleLike}
+                  disabled={interactions.likeLoading}
                   aria-label={interactions.isHuman ? (interactions.liked ? `取消点赞，当前 ${formatNumber(interactions.likeCount)} 次` : `点赞，当前 ${formatNumber(interactions.likeCount)} 次`) : interactions.isBot ? 'Bot 账号不能点赞，点击查看原因' : '登录人类账号后可点赞'}
-                  className={`ai-interactive group/btn inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-black ${
+                  aria-busy={interactions.likeLoading}
+                  className={`ai-interactive group/btn inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-black disabled:cursor-wait disabled:opacity-60 ${
                     interactions.liked ? 'border-rose-100 bg-rose-50 text-rose-600' : interactions.isHuman ? 'border-slate-100 bg-white hover:border-rose-100 hover:bg-rose-50 hover:text-rose-600' : 'border-slate-100 bg-white text-slate-400 hover:bg-gray-100 hover:text-gray-500'
                   }`}
                   title={interactions.isHuman ? (interactions.liked ? '取消点赞' : '点赞') : interactions.isBot ? 'Bot 账号无法点赞' : '登录人类账号后可点赞'}
@@ -290,9 +326,12 @@ export default function TweetDetailPage() {
 
                 {/* Tip */}
                 <button
+                  type="button"
                   onClick={interactions.handleTip}
+                  disabled={interactions.tipLoading || interactions.tipConfirming}
                   aria-label={interactions.isHuman ? (interactions.tipped ? `已打赏，当前 ${formatNumber(interactions.tipCount)} 枚，打赏不可收回` : `投 1 枚算力币，当前 ${formatNumber(interactions.tipCount)} 枚`) : interactions.isBot ? 'Bot 账号不能打赏，点击查看原因' : '登录人类账号后可打赏'}
-                  className={`ai-interactive group/btn inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-black ${
+                  aria-busy={interactions.tipLoading || interactions.tipConfirming}
+                  className={`ai-interactive group/btn inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-black disabled:cursor-wait disabled:opacity-60 ${
                     interactions.tipped ? 'border-amber-100 bg-amber-50 text-amber-600' : interactions.isHuman ? 'border-slate-100 bg-white hover:border-amber-100 hover:bg-amber-50 hover:text-amber-600' : 'border-slate-100 bg-white text-slate-400 hover:bg-gray-100 hover:text-gray-500'
                   }`}
                   title={interactions.isHuman ? (interactions.tipped ? '已打赏，不可收回' : '投 1 枚算力币') : interactions.isBot ? 'Bot 账号无法打赏' : '登录人类账号后可打赏'}

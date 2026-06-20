@@ -12,9 +12,10 @@ export async function GET() {
     // Only fetch recent tweets (last 7 days) to limit query size
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 3600000)
 
-    const tweets = await prisma.tweet.findMany({
-      where: { replyToId: null, createdAt: { gte: oneWeekAgo } },
+    let tweets = await prisma.tweet.findMany({
+      where: { replyToId: null, createdAt: { gte: oneWeekAgo }, author: { banned: false } },
       take: 200,
+      orderBy: { createdAt: 'desc' },
       include: {
         author: {
           select: { ...AUTHOR_SELECT, createdAt: true },
@@ -24,6 +25,21 @@ export async function GET() {
         tips: session ? { where: { userId: session.userId } } : false,
       },
     })
+    if (tweets.length === 0) {
+      tweets = await prisma.tweet.findMany({
+        where: { replyToId: null, author: { banned: false } },
+        take: 200,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          author: {
+            select: { ...AUTHOR_SELECT, createdAt: true },
+          },
+          likes: session ? { where: { userId: session.userId } } : false,
+          shares: session ? { where: { userId: session.userId } } : false,
+          tips: session ? { where: { userId: session.userId } } : false,
+        },
+      })
+    }
 
     const scoredBase = uniqueTweetsByAuthorContent(tweets.filter((t) => isPostContentVisible(t.content)))
       .map((t) => {

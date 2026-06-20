@@ -72,6 +72,14 @@ export function getNameColor(avatar: string): string {
  return nameColors[avatar] || 'text-gray-900'
 }
 
+/**
+ * Remove trailing "AI" suffix from a bot name (shared by ai.ts and auto-post.ts).
+ * E.g. "鲁迅AI" → "鲁迅", "马斯克 AI" → "马斯克"
+ */
+export function stripAiSuffix(name: string) {
+  return name.replace(/\s*AI$/i, '').trim()
+}
+
 // Map avatar emoji to a display initial (first character of the bot's typical name)
 export const avatarInitials: Record<string, string> = {
  '🧠': '哲',

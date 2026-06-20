@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { useToast } from '@/components/Toast'
+import { useConfirm } from '@/components/ConfirmDialog'
 import { Heart, Repeat2, Coins } from 'lucide-react'
 
 export function useTweetInteractions(initial: {
@@ -16,6 +17,7 @@ export function useTweetInteractions(initial: {
 }) {
   const { user } = useAuth()
   const { toast } = useToast()
+  const confirm = useConfirm()
 
   const [liked, setLiked] = useState(initial.liked ?? false)
   const [likeCount, setLikeCount] = useState(initial.likesCount)
@@ -29,6 +31,7 @@ export function useTweetInteractions(initial: {
   const [likeLoading, setLikeLoading] = useState(false)
   const [shareLoading, setShareLoading] = useState(false)
   const [tipLoading, setTipLoading] = useState(false)
+  const [tipConfirming, setTipConfirming] = useState(false)
 
   const isHuman = user?.role === 'human' || user?.role === 'admin'
   const isBot = user?.role === 'bot'
@@ -65,14 +68,14 @@ export function useTweetInteractions(initial: {
     setLikeLoading(true)
     const newLiked = !liked
     setLiked(newLiked)
-    setLikeCount((c) => c + (newLiked ? 1 : -1))
+    setLikeCount((c) => Math.max(0, c + (newLiked ? 1 : -1)))
     setLikeAnimating(true)
     setTimeout(() => setLikeAnimating(false), 400)
     try {
       const res = await fetch(`/api/tweets/${initial.tweetId}/like`, { method: 'POST' })
-      if (!res.ok) { setLiked(!newLiked); setLikeCount((c) => c + (newLiked ? -1 : 1)) }
+      if (!res.ok) { setLiked(!newLiked); setLikeCount((c) => Math.max(0, c + (newLiked ? -1 : 1))) }
       else if (newLiked) toast('已点赞', 'success', <Heart size={14} className="text-red-400" />)
-    } catch { setLiked(!newLiked); setLikeCount((c) => c + (newLiked ? -1 : 1)) }
+    } catch { setLiked(!newLiked); setLikeCount((c) => Math.max(0, c + (newLiked ? -1 : 1))) }
     finally { setLikeLoading(false) }
   }, [guardInteraction, likeLoading, liked, initial.tweetId, toast])
 
@@ -81,23 +84,34 @@ export function useTweetInteractions(initial: {
     setShareLoading(true)
     const newShared = !shared
     setShared(newShared)
-    setShareCount((c) => c + (newShared ? 1 : -1))
+    setShareCount((c) => Math.max(0, c + (newShared ? 1 : -1)))
     if (newShared) { setShareAnimating(true); setTimeout(() => setShareAnimating(false), 500) }
     try {
       const res = await fetch(`/api/tweets/${initial.tweetId}/share`, { method: 'POST' })
-      if (!res.ok) { setShared(!newShared); setShareCount((c) => c + (newShared ? -1 : 1)) }
+      if (!res.ok) { setShared(!newShared); setShareCount((c) => Math.max(0, c + (newShared ? -1 : 1))) }
       else if (newShared) toast('已转发', 'success', <Repeat2 size={14} className="text-green-400" />)
-    } catch { setShared(!newShared); setShareCount((c) => c + (newShared ? -1 : 1)) }
+    } catch { setShared(!newShared); setShareCount((c) => Math.max(0, c + (newShared ? -1 : 1))) }
     finally { setShareLoading(false) }
   }, [guardInteraction, shareLoading, shared, initial.tweetId, toast])
 
   const handleTip = useCallback(async () => {
-    if (!guardInteraction('打赏') || tipLoading) return
+    if (!guardInteraction('打赏') || tipLoading || tipConfirming) return
     if (tipped) {
       toast('这条推文已经打赏过，打赏不可收回', 'info', <Coins size={14} className="text-yellow-400" />)
       return
     }
-    const confirmed = window.confirm('确认消耗 1 枚算力币打赏这条推文？打赏不可撤回，算力币只能通过每日签到获得。')
+    setTipConfirming(true)
+    let confirmed = false
+    try {
+      confirmed = await confirm({
+        title: '打赏这条推文',
+        message: '将消耗 1 枚算力币，打赏不可撤回。算力币只能通过每日签到获得。',
+        confirmText: '打赏 1 枚',
+        tone: 'warning',
+      })
+    } finally {
+      setTipConfirming(false)
+    }
     if (!confirmed) return
     setTipLoading(true)
     setTipAnimating(true)
@@ -119,11 +133,12 @@ export function useTweetInteractions(initial: {
       }
     } catch { toast('网络错误', 'info') }
     finally { setTipLoading(false) }
-  }, [guardInteraction, tipLoading, tipped, initial.tweetId, toast])
+  }, [guardInteraction, tipLoading, tipConfirming, tipped, initial.tweetId, toast, confirm])
 
   return {
     liked, likeCount, shared, shareCount, tipped, tipCount,
     likeAnimating, shareAnimating, tipAnimating,
+    likeLoading, shareLoading, tipLoading, tipConfirming,
     isHuman, isBot,
     handleLike, handleShare, handleTip,
   }
